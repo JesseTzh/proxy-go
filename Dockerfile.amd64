@@ -1,0 +1,242 @@
+# syntax=docker/dockerfile:1.7
+#
+# proxy-go AMD64 Dockerfile
+#
+# 目标：
+# 1. 构建 React 前端，并放入最终镜像。
+# 2. 编译带 stream + ssl_preread 的 Nginx，并放入最终镜像。
+# 3. 下载 Xray-core linux-amd64，并放入最终镜像。
+# 4. 最终镜像只启动 proxy-go，一个主进程托管 Nginx / Xray 子进程。
+#
+# 构建：
+#   docker buildx build --platform linux/amd64 -f Dockerfile.amd64 -t proxy-go:amd64 .
+#
+# 运行：
+#   docker run -d --name proxy-go \
+#     --restart unless-stopped \
+#     -p 80:80 -p 30080:30080 \
+#     -e PROXY_GO_INITIAL_PASSWORD='请改成强密码' \
+#     -e PROXY_GO_ACME_EMAIL='admin@example.com' \
+#     -v proxy-go-data:/var/lib/proxy-go \
+#     -v proxy-go-logs:/var/log/proxy-go \
+#     proxy-go:amd64
+
+ARG TARGETPLATFORM=linux/amd64
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+
+############################
+# 1. 前端构建
+############################
+FROM --platform=linux/amd64 node:24-bookworm AS web-builder
+
+WORKDIR /src/web
+
+# shadcn / Tailwind / Vite 项目使用 pnpm。没有 lockfile 时允许生成 lockfile。
+RUN corepack enable && corepack prepare pnpm@11 --activate
+
+COPY web ./
+RUN if [ -f pnpm-lock.yaml ]; then \
+      pnpm install --frozen-lockfile; \
+    else \
+      pnpm install; \
+    fi \
+    && pnpm build
+
+############################
+# 2. Nginx 构建
+############################
+FROM --platform=linux/amd64 debian:bookworm-slim AS nginx-builder
+
+ARG NGINX_VERSION=1.30.2
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      build-essential \
+      libpcre2-dev \
+      zlib1g-dev \
+      libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /tmp
+RUN curl -fsSL "https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz" -o nginx.tar.gz \
+    && tar -xzf nginx.tar.gz
+
+WORKDIR /tmp/nginx-${NGINX_VERSION}
+
+# 注意：这里把 stream / ssl_preread 编译为静态能力，避免 Debian 动态 stream 模块需要 load_module。
+RUN ./configure \
+      --prefix=/var/lib/proxy-go/nginx \
+      --sbin-path=/out/nginx \
+      --conf-path=/var/lib/proxy-go/nginx/nginx.conf \
+      --pid-path=/var/lib/proxy-go/nginx/nginx.pid \
+      --lock-path=/var/lib/proxy-go/nginx/nginx.lock \
+      --http-client-body-temp-path=/tmp/nginx/client_body \
+      --http-proxy-temp-path=/tmp/nginx/proxy \
+      --http-fastcgi-temp-path=/tmp/nginx/fastcgi \
+      --http-uwsgi-temp-path=/tmp/nginx/uwsgi \
+      --http-scgi-temp-path=/tmp/nginx/scgi \
+      --with-threads \
+      --with-file-aio \
+      --with-http_ssl_module \
+      --with-http_v2_module \
+      --with-http_realip_module \
+      --with-http_stub_status_module \
+      --with-stream \
+      --with-stream_ssl_module \
+      --with-stream_ssl_preread_module \
+    && make -j"$(nproc)" \
+    && make install \
+    && strip /out/nginx \
+    && mkdir -p /out/share \
+    && cp conf/mime.types /out/share/mime.types \
+    && /out/nginx -V
+
+############################
+# 3. Xray 获取
+############################
+FROM --platform=linux/amd64 debian:bookworm-slim AS xray-downloader
+
+ARG XRAY_VERSION=25.6.8
+ARG XRAY_URL=""
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      curl \
+      unzip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN set -eux; \
+    mkdir -p /out /tmp/xray; \
+    if [ -n "$XRAY_URL" ]; then \
+      url="$XRAY_URL"; \
+    else \
+      url="https://github.com/XTLS/Xray-core/releases/download/v${XRAY_VERSION}/Xray-linux-64.zip"; \
+    fi; \
+    curl -fL "$url" -o /tmp/xray.zip; \
+    unzip /tmp/xray.zip -d /tmp/xray; \
+    cp /tmp/xray/xray /out/xray; \
+    chmod 0755 /out/xray; \
+    strip /out/xray || true; \
+    /out/xray version
+
+############################
+# 4. Go 后端构建
+############################
+FROM --platform=linux/amd64 golang:1.26.4-bookworm AS go-builder
+
+ENV CGO_ENABLED=0 \
+    GOOS=linux \
+    GOARCH=amd64 \
+    GOPROXY=https://goproxy.cn,direct
+
+WORKDIR /src
+
+COPY . ./
+RUN go mod download
+
+RUN go build -trimpath -ldflags="-s -w" -o /out/proxy-go ./cmd/server \
+    && /out/proxy-go --help >/dev/null || true
+
+############################
+# 5. 最终运行镜像
+############################
+FROM --platform=linux/amd64 debian:bookworm-slim AS runtime
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Asia/Shanghai \
+    PROXY_GO_CONFIG=/etc/proxy-go/config.yml
+
+# Nginx 为自编译二进制，但仍依赖系统运行库。
+# curl 仅用于 HEALTHCHECK，可按需删除。
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates \
+      tzdata \
+      curl \
+      libpcre2-8-0 \
+      zlib1g \
+      libssl3 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p \
+      /etc/proxy-go \
+      /var/lib/proxy-go \
+      /var/lib/proxy-go/bin \
+      /var/lib/proxy-go/certs \
+      /var/lib/proxy-go/nginx \
+      /var/lib/proxy-go/nginx/logs \
+      /var/lib/proxy-go/xray \
+      /var/log/proxy-go \
+      /tmp/nginx/client_body \
+      /tmp/nginx/proxy \
+      /tmp/nginx/fastcgi \
+      /tmp/nginx/uwsgi \
+      /tmp/nginx/scgi \
+      /usr/share/proxy-go \
+      /usr/share/proxy-go/web
+
+COPY --from=go-builder /out/proxy-go /usr/local/bin/proxy-go
+COPY --from=nginx-builder /out/nginx /usr/local/bin/nginx
+COPY --from=xray-downloader /out/xray /usr/local/bin/xray
+COPY --from=web-builder /src/web/dist /usr/share/proxy-go/web
+COPY --from=nginx-builder /out/share/mime.types /usr/share/proxy-go/mime.types
+COPY configs/config.yml /etc/proxy-go/config.yml
+
+# 单文件 entrypoint，避免额外依赖脚本文件。
+RUN cat > /usr/local/bin/docker-entrypoint.sh <<'ENTRYPOINT'
+#!/usr/bin/env sh
+set -eu
+
+CONFIG_FILE="${PROXY_GO_CONFIG:-/etc/proxy-go/config.yml}"
+DATA_DIR="/var/lib/proxy-go"
+LOG_DIR="/var/log/proxy-go"
+NGINX_CONF_DIR="${DATA_DIR}/nginx"
+XRAY_CONF_DIR="${DATA_DIR}/xray"
+
+mkdir -p \
+  "${DATA_DIR}/bin" \
+  "${DATA_DIR}/certs" \
+  "${NGINX_CONF_DIR}" \
+  "${NGINX_CONF_DIR}/logs" \
+  "${XRAY_CONF_DIR}" \
+  "${LOG_DIR}" \
+  /tmp/nginx/client_body \
+  /tmp/nginx/proxy \
+  /tmp/nginx/fastcgi \
+  /tmp/nginx/uwsgi \
+  /tmp/nginx/scgi
+
+# proxy-go 生成的 nginx.conf 中包含：include mime.types;
+# 自编译 Nginx 的 prefix 是 /var/lib/proxy-go/nginx，因此需要确保该文件存在。
+if [ ! -f "${NGINX_CONF_DIR}/mime.types" ]; then
+  cp /usr/share/proxy-go/mime.types "${NGINX_CONF_DIR}/mime.types"
+fi
+
+# 首次启动必须有初始密码。也可以写在挂载的 config.yml 中。
+if [ ! -f "${DATA_DIR}/proxy-go.db" ] && [ -z "${PROXY_GO_INITIAL_PASSWORD:-}" ]; then
+  if ! grep -Eq '^[[:space:]]*initial_password:[[:space:]]*"?[^"[:space:]]+' "${CONFIG_FILE}" 2>/dev/null; then
+    echo "ERROR: first startup requires PROXY_GO_INITIAL_PASSWORD or security.initial_password in ${CONFIG_FILE}" >&2
+    exit 1
+  fi
+fi
+
+exec /usr/local/bin/proxy-go --config "${CONFIG_FILE}"
+ENTRYPOINT
+RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh /usr/local/bin/proxy-go /usr/local/bin/nginx /usr/local/bin/xray
+
+WORKDIR /var/lib/proxy-go
+
+# 80: HTTP-01 / HTTP 跳转
+# 30080: 初始管理端口
+EXPOSE 80/tcp 30080/tcp
+
+VOLUME ["/var/lib/proxy-go", "/var/log/proxy-go"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:30080/api/init/status >/dev/null || exit 1
+
+STOPSIGNAL SIGTERM
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

@@ -1,0 +1,5 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Xray">
+  <rect x="18" y="18" width="164" height="164" rx="24" fill="#111827"/>
+  <path d="M54 54l92 92M146 54l-92 92" stroke="#f8fafc" stroke-width="18" stroke-linecap="round"/>
+  <path d="M100 32v136M32 100h136" stroke="#38bdf8" stroke-width="8" stroke-linecap="round" opacity=".9"/>
+</svg>

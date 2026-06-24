@@ -1,0 +1,63 @@
+package runtimeconfig
+
+import (
+	"github.com/proxy-go/proxy-go/internal/models"
+	"gorm.io/gorm"
+)
+
+func Load(db *gorm.DB) (Snapshot, error) {
+	var snapshot Snapshot
+	var setting models.SystemSetting
+	if err := db.First(&setting, 1).Error; err != nil && err != gorm.ErrRecordNotFound {
+		return snapshot, err
+	}
+	snapshot.ManagementDomain = setting.ManagementDomain
+
+	var rules []models.ReverseProxyRule
+	if err := db.Preload("Domain").Where("enabled = ?", true).Find(&rules).Error; err != nil {
+		return snapshot, err
+	}
+	snapshot.ReverseProxies = make([]ReverseProxy, 0, len(rules))
+	for _, rule := range rules {
+		snapshot.ReverseProxies = append(snapshot.ReverseProxies, ReverseProxy{
+			Domain:       rule.Domain.Domain,
+			TargetScheme: rule.TargetScheme,
+			TargetHost:   rule.TargetHost,
+			TargetPort:   rule.TargetPort,
+			PreserveHost: rule.PreserveHost,
+			WebSocket:    rule.WebSocket,
+			PassRealIP:   rule.PassRealIP,
+		})
+	}
+
+	var inbounds []models.ProxyInbound
+	if err := db.Preload("Domain").Where("enabled = ?", true).Find(&inbounds).Error; err != nil {
+		return snapshot, err
+	}
+	snapshot.ProxyInbounds = make([]ProxyInbound, 0, len(inbounds))
+	for _, inbound := range inbounds {
+		snapshot.ProxyInbounds = append(snapshot.ProxyInbounds, ProxyInbound{
+			ID:                     inbound.ID,
+			Name:                   inbound.Name,
+			Template:               inbound.Template,
+			Protocol:               inbound.Protocol,
+			Domain:                 inbound.Domain.Domain,
+			ListenAddr:             inbound.ListenAddr,
+			ListenPort:             inbound.ListenPort,
+			UUID:                   inbound.UUID,
+			Network:                inbound.Network,
+			Security:               inbound.Security,
+			Flow:                   inbound.Flow,
+			XHTTPPath:              inbound.XHTTPPath,
+			XHTTPMode:              inbound.XHTTPMode,
+			RealityPrivateKey:      inbound.RealityPrivateKey,
+			RealityPublicKey:       inbound.RealityPublicKey,
+			RealityShortID:         inbound.RealityShortID,
+			RealityHandshakeServer: inbound.RealityHandshakeServer,
+			RealityHandshakePort:   inbound.RealityHandshakePort,
+			RealityMaxTimeDiff:     inbound.RealityMaxTimeDiff,
+		})
+	}
+
+	return snapshot, nil
+}

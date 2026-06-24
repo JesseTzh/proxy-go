@@ -1,0 +1,69 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors and IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment and local config
+.env
+.env.*
+!.env.example
+config.yml
+config.yaml
+
+# Logs
+*.log
+/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+
+# Go
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+coverage.html
+.cache/
+
+# Runtime data
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Bun / React / Vite
+node_modules/
+web/node_modules/
+dist/
+build/
+web/dist/
+internal/webui/dist/
+.vite/
+web/.vite/
+
+# TypeScript
+*.tsbuildinfo
+
+# Test and coverage output
+coverage/
+web/coverage/
+test-results/
+playwright-report/
+
+# Docker and temporary files
+*.pid
+tmp/
+temp/
+
+.dev

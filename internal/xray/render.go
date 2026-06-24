@@ -1,0 +1,117 @@
+package xray
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/proxy-go/proxy-go/internal/runtimeconfig"
+)
+
+func Render(snapshot runtimeconfig.Snapshot) ([]byte, error) {
+	inbounds := make([]any, 0, len(snapshot.ProxyInbounds))
+	for _, inbound := range snapshot.ProxyInbounds {
+		rendered, err := RenderInbound(inbound)
+		if err != nil {
+			return nil, err
+		}
+		inbounds = append(inbounds, rendered)
+	}
+
+	cfg := map[string]any{
+		"log":      map[string]any{"loglevel": "info"},
+		"inbounds": inbounds,
+		"outbounds": []any{
+			map[string]any{"protocol": "freedom", "tag": "direct"},
+		},
+		"routing": map[string]any{
+			"domainStrategy": "AsIs",
+			"rules":          []any{},
+		},
+	}
+	return json.MarshalIndent(cfg, "", "  ")
+}
+
+func RenderInbound(in runtimeconfig.ProxyInbound) (map[string]any, error) {
+	switch in.Template {
+	case "vless-reality-vision":
+		return renderVLESSRealityVision(in), nil
+	case "vless-xhttp":
+		return renderVLESSXHTTP(in), nil
+	default:
+		return nil, fmt.Errorf("unsupported inbound template %q", in.Template)
+	}
+}
+
+func renderVLESSRealityVision(in runtimeconfig.ProxyInbound) map[string]any {
+	return baseVLESSInbound(in, map[string]any{
+		"network":  "raw",
+		"security": "reality",
+		"realitySettings": map[string]any{
+			"show":        false,
+			"dest":        realityDest(in),
+			"serverNames": []any{in.Domain},
+			"privateKey":  in.RealityPrivateKey,
+			"shortIds":    []any{in.RealityShortID},
+			"maxTimeDiff": in.RealityMaxTimeDiff,
+		},
+	})
+}
+
+func renderVLESSXHTTP(in runtimeconfig.ProxyInbound) map[string]any {
+	security := in.Security
+	if security == "" {
+		security = "reality"
+	}
+	stream := map[string]any{
+		"network": "xhttp",
+		"xhttpSettings": map[string]any{
+			"path": in.XHTTPPath,
+			"mode": in.XHTTPMode,
+		},
+		"security": security,
+	}
+	if security == "reality" {
+		stream["realitySettings"] = map[string]any{
+			"show":        false,
+			"dest":        realityDest(in),
+			"serverNames": []any{in.Domain},
+			"privateKey":  in.RealityPrivateKey,
+			"shortIds":    []any{in.RealityShortID},
+			"maxTimeDiff": in.RealityMaxTimeDiff,
+		}
+	}
+	return baseVLESSInbound(in, stream)
+}
+
+func baseVLESSInbound(in runtimeconfig.ProxyInbound, streamSettings map[string]any) map[string]any {
+	client := map[string]any{
+		"id":    in.UUID,
+		"email": fmt.Sprintf("inbound-%d@proxy-go.local", in.ID),
+	}
+	if in.Flow != "" {
+		client["flow"] = in.Flow
+	}
+	return map[string]any{
+		"tag":      fmt.Sprintf("inbound-%d", in.ID),
+		"listen":   in.ListenAddr,
+		"port":     in.ListenPort,
+		"protocol": "vless",
+		"settings": map[string]any{
+			"clients":    []any{client},
+			"decryption": "none",
+		},
+		"streamSettings": streamSettings,
+	}
+}
+
+func realityDest(in runtimeconfig.ProxyInbound) string {
+	host := in.RealityHandshakeServer
+	if host == "" {
+		host = in.Domain
+	}
+	port := in.RealityHandshakePort
+	if port == 0 {
+		port = 443
+	}
+	return fmt.Sprintf("%s:%d", host, port)
+}

@@ -1,0 +1,58 @@
+services:
+  proxy-go:
+    image: jessetzh/proxy-go
+    container_name: proxy-go
+    platform: linux/amd64
+    build:
+       context: .
+       dockerfile: Dockerfile.amd64
+       args:
+         NGINX_VERSION: "1.30.2"
+         XRAY_VERSION: "25.6.8"
+
+    restart: unless-stopped
+
+    extra_hosts:
+      # 反向代理宿主机其他端口时，目标主机填写 host.docker.internal。
+      # Linux Docker 通过 host-gateway 解析到宿主机网关；Docker Desktop 会继续兼容内置名称。
+      - "host.docker.internal:host-gateway"
+
+    ports:
+      # HTTP-01 证书验证必须保证宿主机 80 可被公网访问。
+      - "80:80/tcp"
+
+      # 正式入口，Nginx 在容器内监听 443，并按 SNI/path 分流管理面板、反代、Xray。
+      # 如果宿主机 443 已被占用，先保持注释，排查完成后再启用或改成其他宿主端口。
+      # - "443:443/tcp"
+
+      # 初始管理端口，可在系统初始化完成后关闭。
+      - "30080:30080/tcp"
+
+    environment:
+      TZ: Asia/Shanghai
+      PROXY_GO_CONFIG: /etc/proxy-go/config.yml
+
+      # 首次启动必填。首次写入 SQLite 后，后续修改该值不会覆盖数据库中的密码哈希。
+      PROXY_GO_INITIAL_PASSWORD: ${PROXY_GO_INITIAL_PASSWORD}
+
+      # 申请 ACME 证书时使用。
+      PROXY_GO_ACME_EMAIL: ${PROXY_GO_ACME_EMAIL}
+
+    volumes:
+      # 持久化 SQLite、证书、生成的 Nginx/Xray 配置等。
+      - ./data:/var/lib/proxy-go
+
+      # 持久化应用日志、审计日志、Nginx/Xray 托管日志。
+      - ./logs:/var/log/proxy-go
+
+      # 可选：挂载自定义配置文件。
+      # - ./config.yml:/etc/proxy-go/config.yml:ro
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:30080/api/init/status >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+    stop_grace_period: 30s

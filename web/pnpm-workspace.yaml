@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+minimumReleaseAgeExclude:
+  - browserslist@4.28.4
+  - electron-to-chromium@1.5.377
+  - '@tybys/wasm-util@0.10.3'

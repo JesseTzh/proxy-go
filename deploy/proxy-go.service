@@ -1,0 +1,19 @@
+[Unit]
+Description=proxy-go single binary proxy gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+Environment=PROXY_GO_CONFIG=/etc/proxy-go/config.yml
+Environment=PROXY_GO_INITIAL_PASSWORD=change-me-now
+ExecStart=/usr/local/bin/proxy-go --config /etc/proxy-go/config.yml
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=1048576
+WorkingDirectory=/var/lib/proxy-go
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+.git
+.gitignore
+dist
+node_modules
+web/node_modules
+web/dist
+*.log
+*.db
+/var
+runtime-assets
