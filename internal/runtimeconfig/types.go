@@ -2,6 +2,8 @@ package runtimeconfig
 
 type Snapshot struct {
 	ManagementDomain string
+	PublicHTTPSPort  int
+	ManagedHTTPSAddr string
 	ReverseProxies   []ReverseProxy
 	ProxyInbounds    []ProxyInbound
 }
@@ -20,6 +22,8 @@ type ProxyInbound struct {
 	ID                     uint
 	Name                   string
 	Template               string
+	PublicHTTPSPort        int
+	ManagedHTTPSAddr       string
 	Protocol               string
 	Domain                 string
 	ListenAddr             string

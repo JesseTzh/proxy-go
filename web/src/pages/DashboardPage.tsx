@@ -156,7 +156,7 @@ export function DashboardPage() {
             title="Nginx"
             process="nginx"
             status={status?.nginx}
-            listen={formatPorts(status?.nginxPorts)}
+            listen={formatNginxListen(status)}
             busy={busy}
             onAction={control}
             data-testid="dashboard-process-nginx"
@@ -165,7 +165,7 @@ export function DashboardPage() {
             title="Xray"
             process="xray"
             status={status?.xray}
-            listen="-"
+            listen={formatXrayListen(status)}
             busy={busy}
             onAction={control}
             onLogs={showXrayLogs}
@@ -315,6 +315,16 @@ function RuntimeBadge({ running, 'data-testid': dataTestId }: { running?: boolea
 
 function formatPorts(ports?: number[]) {
   return ports?.length ? ports.join(', ') : '-'
+}
+
+function formatNginxListen(status?: RuntimeStatus) {
+  const ports = formatPorts(status?.nginxPorts)
+  const managed = status?.nginxManagedHttpsAddr
+  return managed ? `${ports}, ${managed}` : ports
+}
+
+function formatXrayListen(status?: RuntimeStatus) {
+  return status?.xrayPublicHttpsPort ? `0.0.0.0:${status.xrayPublicHttpsPort}` : '-'
 }
 
 function formatDateTime(date: Date) {

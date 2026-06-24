@@ -48,12 +48,11 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 		t.Fatalf("render nginx: %v", err)
 	}
 	for _, want := range []string{
-		"app.example.com 127.0.0.1:30443;",
-		"vless.example.com 127.0.0.1:31001;",
 		"location ^~ /xhttp",
 		"proxy_pass http://127.0.0.1:31002;",
 		"proxy_pass http://127.0.0.1:30081;",
 		"ssl_certificate /certs/app.example.com/fullchain.pem;",
+		"listen 127.0.0.1:30443 ssl;",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("rendered config missing %q:\n%s", want, out)
@@ -61,5 +60,8 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 	}
 	if strings.Contains(out, "app.example.com 127.0.0.1:31002;") {
 		t.Fatalf("xhttp inbound should not be routed by stream SNI:\n%s", out)
+	}
+	if strings.Contains(out, "ssl_preread") || strings.Contains(out, "listen 443 reuseport") {
+		t.Fatalf("nginx should not own the public HTTPS stream entrypoint:\n%s", out)
 	}
 }

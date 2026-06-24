@@ -42,6 +42,8 @@ type Status struct {
 	Xray                     any        `json:"xray"`
 	GoInternalAddr           string     `json:"goInternalAddr"`
 	NginxPorts               []int      `json:"nginxPorts"`
+	NginxManagedHTTPSAddr    string     `json:"nginxManagedHttpsAddr"`
+	XrayPublicHTTPSPort      int        `json:"xrayPublicHttpsPort"`
 	DomainCount              int64      `json:"domainCount"`
 	CertificateCount         int64      `json:"certificateCount"`
 	ReverseProxyCount        int64      `json:"reverseProxyCount"`
@@ -62,7 +64,9 @@ func (s *Service) Status() (Status, error) {
 	status.Nginx = s.Nginx.Status()
 	status.Xray = s.Xray.Status()
 	status.GoInternalAddr = s.Cfg.Server.InternalAddr
-	status.NginxPorts = []int{s.Cfg.Server.PublicHTTPPort, s.Cfg.Server.PublicHTTPSPort}
+	status.NginxPorts = []int{s.Cfg.Server.PublicHTTPPort}
+	status.NginxManagedHTTPSAddr = s.Cfg.Server.ManagedHTTPSAddr
+	status.XrayPublicHTTPSPort = s.Cfg.Server.PublicHTTPSPort
 	if err := s.DB.Model(&models.Domain{}).Where("status=?", "enabled").Count(&status.DomainCount).Error; err != nil {
 		return status, err
 	}

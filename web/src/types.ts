@@ -4,6 +4,6 @@ export type ReverseProxy = { id: number; domainId: number; domain?: Domain; targ
 export type ProxyInbound = { id: number; name: string; template: 'vless-reality-vision' | 'vless-xhttp'; protocol: string; domainId: number; domain?: Domain; listenAddr: string; listenPort: number; network: string; security: string; flow: string; xhttpPath: string; xhttpMode: string; realityHandshakeServer: string; realityHandshakePort: number; realityMaxTimeDiff: number; enabled: boolean }
 export type InboundShare = { name: string; domain: string; template: ProxyInbound['template']; uri: string }
 export type ProcessStatus = { name?: string; path?: string; running: boolean; startedAt?: string; lastError?: string }
-export type RuntimeStatus = { proxyGo: {running:boolean}; nginx: ProcessStatus; xray: ProcessStatus; goInternalAddr: string; nginxPorts: number[]; domainCount: number; certificateCount: number; reverseProxyCount: number; inboundCount: number; expiringCertificateCount: number }
+export type RuntimeStatus = { proxyGo: {running:boolean}; nginx: ProcessStatus; xray: ProcessStatus; goInternalAddr: string; nginxPorts: number[]; nginxManagedHttpsAddr: string; xrayPublicHttpsPort: number; domainCount: number; certificateCount: number; reverseProxyCount: number; inboundCount: number; expiringCertificateCount: number }
 export type RuntimeLogSummary = { logs: string[] }
 export type AuditLog = { id: number; action: string; resourceType: string; resourceId: string; detail: string; ip: string; userAgent: string; createdAt: string }

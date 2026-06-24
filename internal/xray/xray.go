@@ -41,7 +41,7 @@ func New(cfg *config.Config, db *gorm.DB, binary string) *Service {
 }
 
 func (s *Service) GenerateConfig() ([]byte, error) {
-	snapshot, err := runtimeconfig.Load(s.db)
+	snapshot, err := runtimeconfig.LoadWithConfig(s.db, s.cfg)
 	if err != nil {
 		return nil, err
 	}

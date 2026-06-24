@@ -22,6 +22,11 @@ func TestRenderVLESSRealityVisionInbound(t *testing.T) {
 		`"network": "raw"`,
 		`"security": "reality"`,
 		`"flow": "xtls-rprx-vision"`,
+		`"listen": "0.0.0.0"`,
+		`"port": 443`,
+		`"dest": "127.0.0.1:30443"`,
+		`"serverNames"`,
+		`"www.cloudflare.com"`,
 		`"shortIds"`,
 	} {
 		if !strings.Contains(text, want) {
@@ -52,6 +57,21 @@ func TestRenderVLESSXHTTPRealityInbound(t *testing.T) {
 		if !strings.Contains(text, want) {
 			t.Fatalf("rendered config missing %q:\n%s", want, text)
 		}
+	}
+}
+
+func TestRenderRejectsMultiplePublicRealityInbounds(t *testing.T) {
+	_, err := Render(runtimeconfig.Snapshot{
+		ProxyInbounds: []runtimeconfig.ProxyInbound{
+			testInbound("vless-reality-vision"),
+			testInbound("vless-reality-vision"),
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected multiple public reality inbound error")
+	}
+	if !strings.Contains(err.Error(), "only one enabled vless-reality-vision inbound") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
@@ -86,6 +106,8 @@ func testInbound(template string) runtimeconfig.ProxyInbound {
 		ID:                     7,
 		Name:                   "main",
 		Template:               template,
+		PublicHTTPSPort:        443,
+		ManagedHTTPSAddr:       "127.0.0.1:30443",
 		Protocol:               "vless",
 		Domain:                 "proxy.example.com",
 		ListenAddr:             "127.0.0.1",

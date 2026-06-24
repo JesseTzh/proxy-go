@@ -9,7 +9,14 @@ import (
 
 func Render(snapshot runtimeconfig.Snapshot) ([]byte, error) {
 	inbounds := make([]any, 0, len(snapshot.ProxyInbounds))
+	publicRealityCount := 0
 	for _, inbound := range snapshot.ProxyInbounds {
+		if inbound.Template == "vless-reality-vision" {
+			publicRealityCount++
+			if publicRealityCount > 1 {
+				return nil, fmt.Errorf("only one enabled vless-reality-vision inbound can listen on public https port")
+			}
+		}
 		rendered, err := RenderInbound(inbound)
 		if err != nil {
 			return nil, err
@@ -43,13 +50,13 @@ func RenderInbound(in runtimeconfig.ProxyInbound) (map[string]any, error) {
 }
 
 func renderVLESSRealityVision(in runtimeconfig.ProxyInbound) map[string]any {
-	return baseVLESSInbound(in, map[string]any{
+	return baseVLESSInbound(publicRealityInbound(in), map[string]any{
 		"network":  "raw",
 		"security": "reality",
 		"realitySettings": map[string]any{
 			"show":        false,
-			"dest":        realityDest(in),
-			"serverNames": []any{in.Domain},
+			"dest":        realityFallbackDest(in),
+			"serverNames": []any{realityServerName(in)},
 			"privateKey":  in.RealityPrivateKey,
 			"shortIds":    []any{in.RealityShortID},
 			"maxTimeDiff": in.RealityMaxTimeDiff,
@@ -104,6 +111,14 @@ func baseVLESSInbound(in runtimeconfig.ProxyInbound, streamSettings map[string]a
 	}
 }
 
+func publicRealityInbound(in runtimeconfig.ProxyInbound) runtimeconfig.ProxyInbound {
+	in.ListenAddr = "0.0.0.0"
+	if in.PublicHTTPSPort != 0 {
+		in.ListenPort = in.PublicHTTPSPort
+	}
+	return in
+}
+
 func realityDest(in runtimeconfig.ProxyInbound) string {
 	host := in.RealityHandshakeServer
 	if host == "" {
@@ -114,4 +129,18 @@ func realityDest(in runtimeconfig.ProxyInbound) string {
 		port = 443
 	}
 	return fmt.Sprintf("%s:%d", host, port)
+}
+
+func realityFallbackDest(in runtimeconfig.ProxyInbound) string {
+	if in.ManagedHTTPSAddr != "" {
+		return in.ManagedHTTPSAddr
+	}
+	return realityDest(in)
+}
+
+func realityServerName(in runtimeconfig.ProxyInbound) string {
+	if in.RealityHandshakeServer != "" {
+		return in.RealityHandshakeServer
+	}
+	return in.Domain
 }

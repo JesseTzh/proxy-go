@@ -17,6 +17,7 @@ import (
 
 type Service struct {
 	db        *gorm.DB
+	cfg       *config.Config
 	generator xray.CredentialGenerator
 }
 
@@ -42,8 +43,7 @@ type ShareDetails struct {
 }
 
 func New(db *gorm.DB, cfg *config.Config, generator xray.CredentialGenerator) *Service {
-	_ = cfg
-	return &Service{db: db, generator: generator}
+	return &Service{db: db, cfg: cfg, generator: generator}
 }
 
 func (s *Service) Create(ctx context.Context, req CreateRequest) (models.ProxyInbound, error) {
@@ -67,6 +67,9 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (models.ProxyIn
 		return item, err
 	}
 	if err := validate(&item); err != nil {
+		return item, err
+	}
+	if err := s.validatePublicRealityUniqueness(&item); err != nil {
 		return item, err
 	}
 	if err := s.db.Create(&item).Error; err != nil {
@@ -103,6 +106,9 @@ func (s *Service) Update(ctx context.Context, id uint, req CreateRequest) (model
 	if err := validate(&item); err != nil {
 		return item, err
 	}
+	if err := s.validatePublicRealityUniqueness(&item); err != nil {
+		return item, err
+	}
 	if err := s.db.Save(&item).Error; err != nil {
 		return item, err
 	}
@@ -133,7 +139,7 @@ func (s *Service) ConfigDetails(id uint) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return xray.RenderInbound(toRuntimeInbound(item))
+	return xray.RenderInbound(s.toRuntimeInbound(item))
 }
 
 func (s *Service) ShareDetails(id uint) (ShareDetails, error) {
@@ -229,11 +235,38 @@ func validate(item *models.ProxyInbound) error {
 	return nil
 }
 
-func toRuntimeInbound(item models.ProxyInbound) runtimeconfig.ProxyInbound {
+func (s *Service) validatePublicRealityUniqueness(item *models.ProxyInbound) error {
+	if item.Template != "vless-reality-vision" || !item.Enabled {
+		return nil
+	}
+	var count int64
+	query := s.db.Model(&models.ProxyInbound{}).
+		Where("template = ? AND enabled = ?", "vless-reality-vision", true)
+	if item.ID != 0 {
+		query = query.Where("id <> ?", item.ID)
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("only one enabled vless-reality-vision inbound can use public https port")
+	}
+	return nil
+}
+
+func (s *Service) toRuntimeInbound(item models.ProxyInbound) runtimeconfig.ProxyInbound {
+	publicHTTPSPort := 0
+	managedHTTPSAddr := ""
+	if s.cfg != nil {
+		publicHTTPSPort = s.cfg.Server.PublicHTTPSPort
+		managedHTTPSAddr = s.cfg.Server.ManagedHTTPSAddr
+	}
 	return runtimeconfig.ProxyInbound{
 		ID:                     item.ID,
 		Name:                   item.Name,
 		Template:               item.Template,
+		PublicHTTPSPort:        publicHTTPSPort,
+		ManagedHTTPSAddr:       managedHTTPSAddr,
 		Protocol:               item.Protocol,
 		Domain:                 item.Domain.Domain,
 		ListenAddr:             item.ListenAddr,

@@ -31,7 +31,7 @@ func New(cfg *config.Config, db *gorm.DB, binary string) *Service {
 }
 
 func (s *Service) GenerateConfig() (string, error) {
-	snapshot, err := runtimeconfig.Load(s.db)
+	snapshot, err := runtimeconfig.LoadWithConfig(s.db, s.cfg)
 	if err != nil {
 		return "", err
 	}
@@ -180,30 +180,6 @@ pid {{.PidFile}};
 error_log {{.ErrorLog}} warn;
 
 events { worker_connections 4096; }
-
-stream {
-    map $ssl_preread_server_name $pg_stream_backend {
-        default 127.0.0.1:9;
-        {{- range .Rules }}
-        {{ .Domain }} {{ $.ManagedHTTPSAddr }};
-        {{- end }}
-        {{- if .ManagementDomain }}
-        {{ .ManagementDomain }} {{ $.ManagedHTTPSAddr }};
-        {{- end }}
-        {{- range .Inbounds }}
-        {{- if eq .Template "vless-reality-vision" }}
-        {{ .Domain }} {{ .ListenAddr }}:{{ .ListenPort }};
-        {{- end }}
-        {{- end }}
-    }
-
-    server {
-        listen {{.HTTPSPort}} reuseport;
-        proxy_pass $pg_stream_backend;
-        ssl_preread on;
-    }
-
-}
 
 http {
     include       mime.types;

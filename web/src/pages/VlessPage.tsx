@@ -166,7 +166,7 @@ export function VlessPage() {
             <TableCell>{item.name}</TableCell>
             <TableCell>{templateLabels[item.template] ?? item.template}</TableCell>
             <TableCell>{item.domain?.domain || item.domainId}</TableCell>
-            <TableCell>{item.listenAddr}:{item.listenPort}</TableCell>
+            <TableCell>{formatInboundListen(item)}</TableCell>
             <TableCell>{item.network}{item.xhttpPath ? ` ${item.xhttpPath}` : ''}</TableCell>
             <TableCell><StatusBadge tone={item.enabled ? 'success' : 'neutral'}>{item.enabled ? '启用' : '停用'}</StatusBadge></TableCell>
             <TableCell>
@@ -397,4 +397,11 @@ function valuesFromItem(item: ProxyInbound): InboundFormValues {
     realityMaxTimeDiff: item.realityMaxTimeDiff || 60,
     enabled: item.enabled,
   }
+}
+
+function formatInboundListen(item: ProxyInbound) {
+  if (item.template === 'vless-reality-vision') {
+    return '0.0.0.0:443'
+  }
+  return `${item.listenAddr}:${item.listenPort}`
 }
