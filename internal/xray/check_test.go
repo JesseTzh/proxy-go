@@ -9,7 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/proxy-go/proxy-go/internal/models"
 	"github.com/proxy-go/proxy-go/internal/process"
+	"github.com/proxy-go/proxy-go/internal/testutil"
 )
 
 func TestCheckUsesCurrentXrayConfigTestCommand(t *testing.T) {
@@ -25,7 +27,7 @@ func TestCheckUsesCurrentXrayConfigTestCommand(t *testing.T) {
 		t.Fatalf("check xray config: %v", err)
 	}
 
-	args, err := readFileUntil(t, logPath, "run -config "+conf)
+	args, err := os.ReadFile(logPath)
 	if err != nil {
 		t.Fatalf("read args: %v", err)
 	}
@@ -60,40 +62,64 @@ func TestCheckFailureIsVisibleInXrayLogs(t *testing.T) {
 	}
 }
 
-func TestStartRequiresExistingConfigFile(t *testing.T) {
+func TestStartRequiresEnabledProxyInbound(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Paths.XrayConfDir = t.TempDir()
 	logPath := filepath.Join(t.TempDir(), "args.log")
-	service := New(cfg, nil, fakeXrayBinary(t, logPath, 0))
+	db := testutil.NewDB(t)
+	service := New(cfg, db, fakeXrayBinary(t, logPath, 0))
 
 	err := service.Start(context.Background())
 	if err == nil {
-		t.Fatalf("expected missing config error")
+		t.Fatalf("expected missing proxy inbound error")
 	}
-	if !strings.Contains(err.Error(), "xray config file is required before start") {
+	if !strings.Contains(err.Error(), "xray proxy inbound is required before start") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if _, readErr := os.ReadFile(logPath); readErr == nil {
-		t.Fatalf("xray binary should not be executed when config is missing")
+		t.Fatalf("xray binary should not be executed when proxy inbounds are missing")
 	} else if !os.IsNotExist(readErr) {
 		t.Fatalf("read args log: %v", readErr)
 	}
 }
 
-func TestStartUsesExistingConfigWithoutRendering(t *testing.T) {
+func TestStartRendersAndStartsWhenEnabledProxyInboundExists(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Paths.XrayConfDir = t.TempDir()
 	logPath := filepath.Join(t.TempDir(), "args.log")
-	service := New(cfg, nil, fakeLongRunningXrayBinary(t, logPath))
+	db := testutil.NewDB(t)
+	domain := models.Domain{Domain: "proxy.example.com", Status: "enabled"}
+	if err := db.Create(&domain).Error; err != nil {
+		t.Fatalf("create domain: %v", err)
+	}
+	if err := db.Create(&models.ProxyInbound{
+		DomainID:               domain.ID,
+		Name:                   "main",
+		Template:               "vless-reality-vision",
+		Protocol:               "vless",
+		UUID:                   "11111111-1111-1111-1111-111111111111",
+		ListenAddr:             "127.0.0.1",
+		ListenPort:             31001,
+		Network:                "raw",
+		Security:               "reality",
+		Flow:                   "xtls-rprx-vision",
+		RealityPrivateKey:      "private-key",
+		RealityPublicKey:       "public-key",
+		RealityShortID:         "abcd1234",
+		RealityHandshakeServer: "www.cloudflare.com",
+		RealityHandshakePort:   443,
+		RealityMaxTimeDiff:     60,
+		Enabled:                true,
+	}).Error; err != nil {
+		t.Fatalf("create proxy inbound: %v", err)
+	}
+	service := New(cfg, db, fakeLongRunningXrayBinary(t, logPath))
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		_ = service.Stop(ctx)
 	})
 	conf := filepath.Join(cfg.Paths.XrayConfDir, "config.json")
-	if err := os.WriteFile(conf, []byte(`{"inbounds":[{}],"outbounds":[{}]}`), 0600); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
 
 	if err := service.Start(context.Background()); err != nil {
 		t.Fatalf("start xray: %v", err)

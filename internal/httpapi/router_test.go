@@ -140,6 +140,62 @@ func TestInboundRoutesReplaceVLESSRoutes(t *testing.T) {
 	assertStatus(t, router, http.MethodGet, "/api/inbounds/1/config", token, http.StatusOK)
 }
 
+func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
+	cfg := testutil.NewConfig(t)
+	db := testutil.NewDB(t)
+	router := Router(Deps{
+		Cfg:       cfg,
+		DB:        db,
+		Audit:     audit.New(db),
+		ACME:      acme.New(db),
+		Limiter:   security.NewLoginLimiter(),
+		Validator: validator.New(),
+	})
+	token := createSession(t, db)
+	if err := db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"}).Error; err != nil {
+		t.Fatalf("create domain: %v", err)
+	}
+	if err := db.Create(&models.ProxyInbound{
+		ID:                     1,
+		Name:                   "main",
+		Template:               "vless-reality-vision",
+		Protocol:               "vless",
+		DomainID:               1,
+		UUID:                   "11111111-1111-1111-1111-111111111111",
+		ListenAddr:             "127.0.0.1",
+		ListenPort:             31001,
+		Network:                "raw",
+		Security:               "reality",
+		Flow:                   "xtls-rprx-vision",
+		RealityPublicKey:       "public",
+		RealityShortID:         "abcd1234",
+		RealityHandshakeServer: "www.cloudflare.com",
+		RealityHandshakePort:   443,
+		RealityMaxTimeDiff:     60,
+		Enabled:                true,
+	}).Error; err != nil {
+		t.Fatalf("create vless: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/inbounds/1/share", nil)
+	req.AddCookie(&http.Cookie{Name: "proxy_go_session", Value: token})
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		URI string `json:"uri"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&flow=xtls-rprx-vision&fp=chrome&pbk=public&security=reality&sid=abcd1234&sni=www.cloudflare.com&type=tcp#main" {
+		t.Fatalf("unexpected uri: %s", body.URI)
+	}
+}
+
 func createSession(t *testing.T, db *gorm.DB) string {
 	t.Helper()
 	token := "test-token"

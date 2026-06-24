@@ -140,6 +140,26 @@ func InboundConfig(d Deps) gin.HandlerFunc {
 	}
 }
 
+func InboundShare(d Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := idParam(c)
+		if err != nil {
+			c.JSON(400, gin.H{"error": "invalid id"})
+			return
+		}
+		share, err := inboundService(d).ShareDetails(id)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(404, gin.H{"error": "not found"})
+			return
+		}
+		if err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(200, share)
+	}
+}
+
 func inboundService(d Deps) *inboundsvc.Service {
 	return inboundsvc.New(d.DB, d.Cfg, xray.CLICredentialGenerator{Binary: d.Cfg.Runtime.XrayBinary})
 }

@@ -23,7 +23,7 @@ type Service struct {
 	Proc   *process.ManagedProcess
 }
 
-var ErrConfigRequired = errors.New("xray config file is required before start")
+var ErrProxyInboundRequired = errors.New("xray proxy inbound is required before start")
 
 func New(cfg *config.Config, db *gorm.DB, binary string) *Service {
 	conf := filepath.Join(cfg.Paths.XrayConfDir, "config.json")
@@ -78,17 +78,10 @@ func (s *Service) Apply(ctx context.Context) error {
 }
 
 func (s *Service) Start(ctx context.Context) error {
-	conf := filepath.Join(s.cfg.Paths.XrayConfDir, "config.json")
-	if err := requireExistingConfig(conf); err != nil {
-		if s.Proc != nil {
-			s.Proc.AppendLog(err.Error() + "\n")
-		}
+	if err := s.requireProxyInbound(); err != nil {
 		return err
 	}
-	if err := s.Check(ctx, conf); err != nil {
-		return err
-	}
-	return s.Proc.Start(ctx)
+	return s.Apply(ctx)
 }
 
 func (s *Service) Stop(ctx context.Context) error {
@@ -96,17 +89,10 @@ func (s *Service) Stop(ctx context.Context) error {
 }
 
 func (s *Service) Restart(ctx context.Context) error {
-	conf := filepath.Join(s.cfg.Paths.XrayConfDir, "config.json")
-	if err := requireExistingConfig(conf); err != nil {
-		if s.Proc != nil {
-			s.Proc.AppendLog(err.Error() + "\n")
-		}
+	if err := s.requireProxyInbound(); err != nil {
 		return err
 	}
-	if err := s.Check(ctx, conf); err != nil {
-		return err
-	}
-	return s.Proc.Restart(ctx)
+	return s.Apply(ctx)
 }
 
 func (s *Service) Status() any {
@@ -135,19 +121,17 @@ func (s *Service) Check(ctx context.Context, conf string) error {
 	return nil
 }
 
-func requireExistingConfig(conf string) error {
-	info, err := os.Stat(conf)
+func (s *Service) requireProxyInbound() error {
+	snapshot, err := runtimeconfig.Load(s.db)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("%w: %s", ErrConfigRequired, conf)
-		}
-		return fmt.Errorf("check xray config file: %w", err)
+		return err
 	}
-	if info.IsDir() {
-		return fmt.Errorf("%w: %s is a directory", ErrConfigRequired, conf)
+	if len(snapshot.ProxyInbounds) > 0 {
+		return nil
 	}
-	if info.Size() == 0 {
-		return fmt.Errorf("%w: %s is empty", ErrConfigRequired, conf)
+	err = ErrProxyInboundRequired
+	if s.Proc != nil {
+		s.Proc.AppendLog(err.Error() + "\n")
 	}
-	return nil
+	return err
 }

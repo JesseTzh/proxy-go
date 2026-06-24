@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/url"
+	"strconv"
 
 	"github.com/proxy-go/proxy-go/internal/config"
 	"github.com/proxy-go/proxy-go/internal/models"
@@ -29,6 +32,13 @@ type CreateRequest struct {
 	RealityHandshakePort   int    `json:"realityHandshakePort"`
 	RealityMaxTimeDiff     int    `json:"realityMaxTimeDiff"`
 	Enabled                bool   `json:"enabled"`
+}
+
+type ShareDetails struct {
+	Name     string `json:"name"`
+	Domain   string `json:"domain"`
+	Template string `json:"template"`
+	URI      string `json:"uri"`
 }
 
 func New(db *gorm.DB, cfg *config.Config, generator xray.CredentialGenerator) *Service {
@@ -124,6 +134,23 @@ func (s *Service) ConfigDetails(id uint) (map[string]any, error) {
 		return nil, err
 	}
 	return xray.RenderInbound(toRuntimeInbound(item))
+}
+
+func (s *Service) ShareDetails(id uint) (ShareDetails, error) {
+	item, err := s.Get(id)
+	if err != nil {
+		return ShareDetails{}, err
+	}
+	uri, err := shareURI(item)
+	if err != nil {
+		return ShareDetails{}, err
+	}
+	return ShareDetails{
+		Name:     item.Name,
+		Domain:   item.Domain.Domain,
+		Template: item.Template,
+		URI:      uri,
+	}, nil
 }
 
 func (s *Service) populateCredentials(ctx context.Context, item *models.ProxyInbound) error {
@@ -224,4 +251,56 @@ func toRuntimeInbound(item models.ProxyInbound) runtimeconfig.ProxyInbound {
 		RealityHandshakePort:   item.RealityHandshakePort,
 		RealityMaxTimeDiff:     item.RealityMaxTimeDiff,
 	}
+}
+
+func shareURI(item models.ProxyInbound) (string, error) {
+	if item.UUID == "" {
+		return "", errors.New("inbound uuid missing")
+	}
+	if item.Domain.Domain == "" {
+		return "", errors.New("inbound domain missing")
+	}
+	if item.Security == "reality" && (item.RealityPublicKey == "" || item.RealityShortID == "") {
+		return "", errors.New("inbound reality credentials missing")
+	}
+
+	query := url.Values{}
+	query.Set("encryption", "none")
+	query.Set("security", item.Security)
+	query.Set("type", transportType(item))
+	if item.Security == "reality" {
+		query.Set("fp", "chrome")
+		query.Set("pbk", item.RealityPublicKey)
+		query.Set("sid", item.RealityShortID)
+		query.Set("sni", shareSNI(item))
+	}
+	if item.Flow != "" {
+		query.Set("flow", item.Flow)
+	}
+	if item.Template == "vless-xhttp" {
+		query.Set("path", item.XHTTPPath)
+		query.Set("mode", item.XHTTPMode)
+	}
+
+	return (&url.URL{
+		Scheme:   "vless",
+		User:     url.User(item.UUID),
+		Host:     net.JoinHostPort(item.Domain.Domain, strconv.Itoa(443)),
+		RawQuery: query.Encode(),
+		Fragment: item.Name,
+	}).String(), nil
+}
+
+func transportType(item models.ProxyInbound) string {
+	if item.Template == "vless-reality-vision" {
+		return "tcp"
+	}
+	return item.Network
+}
+
+func shareSNI(item models.ProxyInbound) string {
+	if item.RealityHandshakeServer != "" {
+		return item.RealityHandshakeServer
+	}
+	return item.Domain.Domain
 }

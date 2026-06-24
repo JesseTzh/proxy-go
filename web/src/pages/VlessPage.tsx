@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import JsonView from '@uiw/react-json-view'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm } from 'react-hook-form'
-import { Code2, Edit, Plus, Power, PowerOff, Trash2 } from 'lucide-react'
+import { Code2, Copy, Edit, Plus, Power, PowerOff, QrCode, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataTable } from '../components/DataTable'
 import { FormField } from '../components/FormField'
@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useDomains } from '../hooks/useDomains'
 import { delJson, getJson, postJson, putJson } from '../lib/api'
 import { inboundSchema, type InboundFormInput, type InboundFormValues } from '../schemas/vless'
-import type { ProxyInbound } from '../types'
+import type { InboundShare, ProxyInbound } from '../types'
 
 const defaults: InboundFormValues = {
   name: 'VLESS Reality Vision',
@@ -45,6 +45,9 @@ export function VlessPage() {
   const [configOpen, setConfigOpen] = useState(false)
   const [configDetails, setConfigDetails] = useState<Record<string, unknown> | null>(null)
   const [configTitle, setConfigTitle] = useState('')
+  const [shareOpen, setShareOpen] = useState(false)
+  const [share, setShare] = useState<InboundShare | null>(null)
+  const [qrDataUrl, setQrDataUrl] = useState('')
   const { domains } = useDomains()
 
   const load = () => getJson<ProxyInbound[]>('inbounds').then(setItems)
@@ -110,6 +113,41 @@ export function VlessPage() {
     }
   }
 
+  async function fetchShare(item: ProxyInbound) {
+    return getJson<InboundShare>(`inbounds/${item.id}/share`)
+  }
+
+  async function copyShare(item: ProxyInbound) {
+    const key = `${item.id}-copy`
+    setBusy(key)
+    try {
+      const result = await fetchShare(item)
+      await navigator.clipboard.writeText(result.uri)
+      toast.success('VLESS 链接已复制')
+    } catch {
+      toast.error('复制 VLESS 链接失败')
+    } finally {
+      setBusy(undefined)
+    }
+  }
+
+  async function showShareQRCode(item: ProxyInbound) {
+    const key = `${item.id}-qr`
+    setBusy(key)
+    try {
+      const result = await fetchShare(item)
+      const QRCode = await import('qrcode')
+      const dataUrl = await QRCode.toDataURL(result.uri, { margin: 1, width: 256 })
+      setShare(result)
+      setQrDataUrl(dataUrl)
+      setShareOpen(true)
+    } catch {
+      toast.error('生成二维码失败')
+    } finally {
+      setBusy(undefined)
+    }
+  }
+
   return (
     <div className="space-y-4" data-testid="inbounds-page">
       <div className="flex flex-wrap items-start justify-between gap-3" data-testid="inbounds-toolbar">
@@ -143,6 +181,14 @@ export function VlessPage() {
                   <Code2 size={15} aria-hidden="true" />
                   配置详情
                 </Button>
+                <Button variant="secondary" size="sm" disabled={busy === `${item.id}-copy`} onClick={() => copyShare(item)} data-testid={`inbound-copy-link-${item.id}`}>
+                  <Copy size={15} aria-hidden="true" />
+                  复制链接
+                </Button>
+                <Button variant="secondary" size="sm" disabled={busy === `${item.id}-qr`} onClick={() => showShareQRCode(item)} data-testid={`inbound-show-qr-${item.id}`}>
+                  <QrCode size={15} aria-hidden="true" />
+                  二维码
+                </Button>
                 <Button variant="secondary" size="sm" disabled={busy === `${item.id}-delete`} onClick={() => action(item, 'delete', () => delJson(`inbounds/${item.id}`))} data-testid={`inbound-delete-${item.id}`}>
                   <Trash2 size={15} aria-hidden="true" />
                   删除
@@ -173,6 +219,31 @@ export function VlessPage() {
           </DialogHeader>
           <div className="max-h-[70vh] overflow-auto rounded-md border border-neutral-200 bg-white p-3" data-testid="inbound-config-json">
             {configDetails ? <JsonView value={configDetails} collapsed={false} displayDataTypes={false} data-testid="inbound-config-json-view" /> : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="max-w-md" data-testid="inbound-share-dialog">
+          <DialogHeader>
+            <DialogTitle>{share?.name ?? 'VLESS'} 分享二维码</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4" data-testid="inbound-share-content">
+            {qrDataUrl ? (
+              <img className="mx-auto size-64 rounded-md border border-neutral-200 bg-white p-2" src={qrDataUrl} alt="VLESS 链接二维码" data-testid="inbound-share-qr-image" />
+            ) : null}
+            <textarea
+              className="min-h-24 resize-none rounded-md border border-neutral-200 bg-neutral-50 p-2 font-mono text-xs text-neutral-700"
+              readOnly
+              value={share?.uri ?? ''}
+              data-testid="inbound-share-uri"
+            />
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={() => share?.uri && navigator.clipboard.writeText(share.uri).then(() => toast.success('VLESS 链接已复制')).catch(() => toast.error('复制 VLESS 链接失败'))} data-testid="inbound-share-copy-button">
+                <Copy size={15} aria-hidden="true" />
+                复制链接
+              </Button>
+            </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
