@@ -1,0 +1,32 @@
+server:
+  initial_addr: "0.0.0.0:30080"
+  internal_addr: "127.0.0.1:30081"
+  public_https_port: 443
+  public_http_port: 80
+  managed_https_addr: "127.0.0.1:30443"
+  start_initial_port: true
+  cookie_secure: false
+
+paths:
+  data_dir: "/var/lib/proxy-go"
+  log_dir: "/var/log/proxy-go"
+  db_file: "/var/lib/proxy-go/proxy-go.db"
+  cert_dir: "/var/lib/proxy-go/certs"
+  bin_dir: "/var/lib/proxy-go/bin"
+  nginx_conf_dir: "/var/lib/proxy-go/nginx"
+  xray_conf_dir: "/var/lib/proxy-go/xray"
+  web_root: "/usr/share/proxy-go/web"
+
+security:
+  session_ttl_hours: 24
+  bcrypt_cost: 12
+
+acme:
+  email: ""
+  directory_url: "https://acme-v02.api.letsencrypt.org/directory"
+  renew_before_days: 30
+
+runtime:
+  start_children: true
+  nginx_binary: "/usr/local/bin/nginx"
+  xray_binary: "/usr/local/bin/xray"
