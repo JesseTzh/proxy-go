@@ -124,6 +124,13 @@ func (p *ManagedProcess) Logs() []string {
 	return log.lines()
 }
 
+func (p *ManagedProcess) AppendLog(line string) {
+	p.mu.Lock()
+	p.ensureLogLocked()
+	p.log.append(line)
+	p.mu.Unlock()
+}
+
 func (p *ManagedProcess) ensureLogLocked() {
 	limit := p.LogLimitBytes
 	if limit <= 0 {

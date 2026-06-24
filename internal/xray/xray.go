@@ -2,6 +2,7 @@ package xray
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -21,6 +22,8 @@ type Service struct {
 	Binary string
 	Proc   *process.ManagedProcess
 }
+
+var ErrConfigRequired = errors.New("xray config file is required before start")
 
 func New(cfg *config.Config, db *gorm.DB, binary string) *Service {
 	conf := filepath.Join(cfg.Paths.XrayConfDir, "config.json")
@@ -75,7 +78,17 @@ func (s *Service) Apply(ctx context.Context) error {
 }
 
 func (s *Service) Start(ctx context.Context) error {
-	return s.Apply(ctx)
+	conf := filepath.Join(s.cfg.Paths.XrayConfDir, "config.json")
+	if err := requireExistingConfig(conf); err != nil {
+		if s.Proc != nil {
+			s.Proc.AppendLog(err.Error() + "\n")
+		}
+		return err
+	}
+	if err := s.Check(ctx, conf); err != nil {
+		return err
+	}
+	return s.Proc.Start(ctx)
 }
 
 func (s *Service) Stop(ctx context.Context) error {
@@ -83,7 +96,17 @@ func (s *Service) Stop(ctx context.Context) error {
 }
 
 func (s *Service) Restart(ctx context.Context) error {
-	return s.Apply(ctx)
+	conf := filepath.Join(s.cfg.Paths.XrayConfDir, "config.json")
+	if err := requireExistingConfig(conf); err != nil {
+		if s.Proc != nil {
+			s.Proc.AppendLog(err.Error() + "\n")
+		}
+		return err
+	}
+	if err := s.Check(ctx, conf); err != nil {
+		return err
+	}
+	return s.Proc.Restart(ctx)
 }
 
 func (s *Service) Status() any {
@@ -99,11 +122,32 @@ func (s *Service) Check(ctx context.Context, conf string) error {
 	defer cancel()
 	started := time.Now()
 	slog.Info("xray config check starting", "binary", s.Binary, "config", conf)
-	cmd := exec.CommandContext(cctx, s.Binary, "test", "-config", conf)
+	cmd := exec.CommandContext(cctx, s.Binary, "run", "-test", "-config", conf)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("xray config test failed: %w: %s", err, string(out))
+		checkErr := fmt.Errorf("xray config test failed: %w: %s", err, string(out))
+		if s.Proc != nil {
+			s.Proc.AppendLog(checkErr.Error() + "\n")
+		}
+		return checkErr
 	}
 	slog.Info("xray config check completed", "elapsed", time.Since(started).String())
+	return nil
+}
+
+func requireExistingConfig(conf string) error {
+	info, err := os.Stat(conf)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("%w: %s", ErrConfigRequired, conf)
+		}
+		return fmt.Errorf("check xray config file: %w", err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("%w: %s is a directory", ErrConfigRequired, conf)
+	}
+	if info.Size() == 0 {
+		return fmt.Errorf("%w: %s is empty", ErrConfigRequired, conf)
+	}
 	return nil
 }

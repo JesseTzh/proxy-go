@@ -126,6 +126,7 @@ func seedAuth(db *gorm.DB, cfg *config.Config) error {
 
 func attachWeb(r *gin.Engine, webRoot string) {
 	r.StaticFS("/assets", http.Dir(filepath.Join(webRoot, "assets")))
+	r.StaticFS("/svg", http.Dir(filepath.Join(webRoot, "svg")))
 	r.NoRoute(func(c *gin.Context) {
 		if c.Request.URL.Path == "/" || c.Request.Method == http.MethodGet {
 			b, err := os.ReadFile(filepath.Join(webRoot, "index.html"))
