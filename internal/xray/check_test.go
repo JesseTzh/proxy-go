@@ -130,12 +130,28 @@ func TestStartRendersAndStartsWhenEnabledProxyInboundExists(t *testing.T) {
 		t.Fatalf("read args: %v", err)
 	}
 	text := string(args)
-	if !strings.Contains(text, "run -test -config "+conf) {
+	testConf, ok := findConfigArg(text, "run -test -config ")
+	if !ok {
 		t.Fatalf("expected config check command in args, got:\n%s", text)
+	}
+	if testConf == conf {
+		t.Fatalf("expected config check to use a temporary config path, got final path %q", testConf)
+	}
+	if !strings.HasSuffix(testConf, ".json") {
+		t.Fatalf("expected temporary config checked by xray to keep .json extension, got %q", testConf)
 	}
 	if !strings.Contains(text, "run -config "+conf) {
 		t.Fatalf("expected start command in args, got:\n%s", text)
 	}
+}
+
+func findConfigArg(text, prefix string) (string, bool) {
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			return strings.TrimSpace(strings.TrimPrefix(line, prefix)), true
+		}
+	}
+	return "", false
 }
 
 func fakeXrayBinary(t *testing.T, logPath string, exitCode int) string {

@@ -58,13 +58,24 @@ func (s *Service) Apply(ctx context.Context) error {
 	if err := os.MkdirAll(s.cfg.Paths.XrayConfDir, 0755); err != nil {
 		return err
 	}
-	tmp := filepath.Join(s.cfg.Paths.XrayConfDir, "config.json.tmp")
+	tmpFile, err := os.CreateTemp(s.cfg.Paths.XrayConfDir, ".config-*.json")
+	if err != nil {
+		return err
+	}
+	tmp := tmpFile.Name()
 	final := filepath.Join(s.cfg.Paths.XrayConfDir, "config.json")
-	if err := os.WriteFile(tmp, b, 0600); err != nil {
+	if _, err := tmpFile.Write(b); err != nil {
+		_ = tmpFile.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmp)
 		return err
 	}
 	slog.Info("xray config rendered", "path", tmp, "bytes", len(b))
 	if err := s.Check(ctx, tmp); err != nil {
+		_ = os.Remove(tmp)
 		return err
 	}
 	if err := os.Rename(tmp, final); err != nil {
