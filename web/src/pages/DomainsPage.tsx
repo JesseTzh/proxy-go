@@ -10,6 +10,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { TableCell, TableRow } from '@/components/ui/table'
 import { delJson, getJson, postJson } from '../lib/api'
 import { domainSchema, type DomainFormValues } from '../schemas/domain'
 import type { Domain } from '../types'
@@ -84,13 +85,13 @@ export function DomainsPage() {
         {items.map(item => {
           const cert = item.certificate
           return (
-            <tr key={item.id} data-testid={`domain-row-${item.id}`}>
-              <td>
+            <TableRow key={item.id} data-testid={`domain-row-${item.id}`}>
+              <TableCell>
                 <div className="font-medium">{item.domain}</div>
                 {item.remark ? <div className="text-xs text-slate-500 mt-1">{item.remark}</div> : null}
-              </td>
-              <td><StatusBadge tone={item.status === 'enabled' ? 'success' : 'neutral'}>{item.status}</StatusBadge></td>
-              <td>
+              </TableCell>
+              <TableCell><StatusBadge tone={item.status === 'enabled' ? 'success' : 'neutral'}>{item.status}</StatusBadge></TableCell>
+              <TableCell>
                 {cert ? (
                   <span className="inline-flex items-center gap-1 text-sm">
                     <BadgeCheck size={14} />
@@ -99,10 +100,10 @@ export function DomainsPage() {
                 ) : (
                   <span className="text-slate-500">未申请</span>
                 )}
-              </td>
-              <td>{cert?.expiresAt || '-'}</td>
-              <td className="max-w-72 break-words">{cert?.errorMessage || '-'}</td>
-              <td>
+              </TableCell>
+              <TableCell>{cert?.expiresAt || '-'}</TableCell>
+              <TableCell className="max-w-72 break-words">{cert?.errorMessage || '-'}</TableCell>
+              <TableCell>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" disabled={busy === `${item.id}-dns`} onClick={() => domainAction(item, 'dns')} data-testid={`domain-dns-${item.id}`}>
                     <Search size={15} aria-hidden="true" />
@@ -129,8 +130,8 @@ export function DomainsPage() {
                     删除域名
                   </Button>
                 </div>
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           )
         })}
       </DataTable>

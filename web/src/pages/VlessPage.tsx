@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import JsonView from '@uiw/react-json-view'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm } from 'react-hook-form'
 import { Code2, Copy, Edit, Plus, Power, PowerOff, QrCode, Trash2 } from 'lucide-react'
@@ -13,10 +12,13 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { TableCell, TableRow } from '@/components/ui/table'
 import { useDomains } from '../hooks/useDomains'
 import { delJson, getJson, postJson, putJson } from '../lib/api'
 import { inboundSchema, type InboundFormInput, type InboundFormValues } from '../schemas/vless'
 import type { InboundShare, ProxyInbound } from '../types'
+
+const JsonView = lazy(() => import('@uiw/react-json-view'))
 
 const defaults: InboundFormValues = {
   name: 'VLESS Reality Vision',
@@ -160,14 +162,14 @@ export function VlessPage() {
 
       <DataTable headers={['名称', '模板', '域名', '监听', '传输', '状态', '操作']} data-testid="inbounds-table">
         {items.map(item => (
-          <tr key={item.id} data-testid={`inbound-row-${item.id}`}>
-            <td>{item.name}</td>
-            <td>{templateLabels[item.template] ?? item.template}</td>
-            <td>{item.domain?.domain || item.domainId}</td>
-            <td>{item.listenAddr}:{item.listenPort}</td>
-            <td>{item.network}{item.xhttpPath ? ` ${item.xhttpPath}` : ''}</td>
-            <td><StatusBadge tone={item.enabled ? 'success' : 'neutral'}>{item.enabled ? '启用' : '停用'}</StatusBadge></td>
-            <td>
+          <TableRow key={item.id} data-testid={`inbound-row-${item.id}`}>
+            <TableCell>{item.name}</TableCell>
+            <TableCell>{templateLabels[item.template] ?? item.template}</TableCell>
+            <TableCell>{item.domain?.domain || item.domainId}</TableCell>
+            <TableCell>{item.listenAddr}:{item.listenPort}</TableCell>
+            <TableCell>{item.network}{item.xhttpPath ? ` ${item.xhttpPath}` : ''}</TableCell>
+            <TableCell><StatusBadge tone={item.enabled ? 'success' : 'neutral'}>{item.enabled ? '启用' : '停用'}</StatusBadge></TableCell>
+            <TableCell>
               <div className="flex flex-wrap gap-2" data-testid={`inbound-actions-${item.id}`}>
                 <Button variant="secondary" size="sm" onClick={() => openEdit(item)} data-testid={`inbound-edit-${item.id}`}>
                   <Edit size={15} aria-hidden="true" />
@@ -194,8 +196,8 @@ export function VlessPage() {
                   删除
                 </Button>
               </div>
-            </td>
-          </tr>
+            </TableCell>
+          </TableRow>
         ))}
       </DataTable>
 
@@ -218,7 +220,11 @@ export function VlessPage() {
             <DialogTitle>{configTitle} 配置详情</DialogTitle>
           </DialogHeader>
           <div className="max-h-[70vh] overflow-auto rounded-md border border-neutral-200 bg-white p-3" data-testid="inbound-config-json">
-            {configDetails ? <JsonView value={configDetails} collapsed={false} displayDataTypes={false} data-testid="inbound-config-json-view" /> : null}
+            {configDetails ? (
+              <Suspense fallback={<div className="text-sm text-muted-foreground" data-testid="inbound-config-json-loading">加载中…</div>}>
+                <JsonView value={configDetails} collapsed={false} displayDataTypes={false} data-testid="inbound-config-json-view" />
+              </Suspense>
+            ) : null}
           </div>
         </DialogContent>
       </Dialog>

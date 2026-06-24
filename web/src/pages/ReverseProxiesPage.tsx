@@ -11,6 +11,7 @@ import { Card } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { TableCell, TableRow } from '@/components/ui/table'
 import { useDomains } from '../hooks/useDomains'
 import { delJson, getJson, postJson } from '../lib/api'
 import { reverseProxySchema, type ReverseProxyFormInput, type ReverseProxyFormValues } from '../schemas/reverseProxy'
@@ -103,14 +104,14 @@ export function ReverseProxiesPage(){
       </Card>
       <DataTable headers={['域名','目标','WebSocket','真实IP','状态','操作']} data-testid="reverse-proxies-table">
         {items.map(x=>(
-          <tr key={x.id} data-testid={`reverse-row-${x.id}`}>
-            <td>{x.domain?.domain || x.domainId}</td>
-            <td>{x.targetScheme}://{x.targetHost}:{x.targetPort}</td>
-            <td>{x.webSocket?'是':'否'}</td>
-            <td>{x.passRealIp?'是':'否'}</td>
-            <td><StatusBadge tone={x.enabled ? 'success' : 'neutral'}>{x.enabled?'启用':'禁用'}</StatusBadge></td>
-            <td><Button variant="outline" size="sm" onClick={()=>delJson(`reverse-proxies/${x.id}`).then(load)} data-testid={`reverse-delete-${x.id}`}>删除</Button></td>
-          </tr>
+          <TableRow key={x.id} data-testid={`reverse-row-${x.id}`}>
+            <TableCell>{x.domain?.domain || x.domainId}</TableCell>
+            <TableCell>{x.targetScheme}://{x.targetHost}:{x.targetPort}</TableCell>
+            <TableCell>{x.webSocket?'是':'否'}</TableCell>
+            <TableCell>{x.passRealIp?'是':'否'}</TableCell>
+            <TableCell><StatusBadge tone={x.enabled ? 'success' : 'neutral'}>{x.enabled?'启用':'禁用'}</StatusBadge></TableCell>
+            <TableCell><Button variant="outline" size="sm" onClick={()=>delJson(`reverse-proxies/${x.id}`).then(load)} data-testid={`reverse-delete-${x.id}`}>删除</Button></TableCell>
+          </TableRow>
         ))}
       </DataTable>
     </div>
