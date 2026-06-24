@@ -21,11 +21,11 @@ const LOCAL_HOST_TARGET = 'host.docker.internal'
 export function ReverseProxiesPage(){
   const [items,setItems]=useState<ReverseProxy[]>([])
   const [useLocalPort,setUseLocalPort]=useState(false)
-  const {domains}=useDomains()
-  const {control,register,handleSubmit,setValue,formState:{errors}} = useForm<ReverseProxyFormInput, unknown, ReverseProxyFormValues>({
+  const {domains,loading: domainsLoading}=useDomains()
+  const {control,register,handleSubmit,setValue,watch,formState:{errors}} = useForm<ReverseProxyFormInput, unknown, ReverseProxyFormValues>({
     resolver:zodResolver(reverseProxySchema),
     defaultValues:{
-      domainId:1,
+      domainId:0,
       targetScheme:'http',
       targetHost:'127.0.0.1',
       targetPort:8080,
@@ -36,8 +36,15 @@ export function ReverseProxiesPage(){
       remark:'',
     },
   })
+  const selectedDomainId = watch('domainId')
   const load=()=>getJson<ReverseProxy[]>('reverse-proxies').then(setItems)
   useEffect(()=>{ void load() },[])
+  useEffect(()=>{
+    if (domains.length === 0) return
+    if (!domains.some(domain => domain.id === selectedDomainId)) {
+      setValue('domainId', domains[0].id, { shouldValidate: true })
+    }
+  },[domains, selectedDomainId, setValue])
   async function add(values: ReverseProxyFormValues){ await postJson('reverse-proxies',values); toast.success('已新增反代规则'); load() }
 
   function toggleLocalPort(checked: boolean) {
@@ -57,8 +64,8 @@ export function ReverseProxiesPage(){
             control={control}
             name="domainId"
             render={({ field }) => (
-              <Select value={String(field.value)} onValueChange={value => field.onChange(Number(value))}>
-                <SelectTrigger className="w-full" data-testid="reverse-domain-select"><SelectValue placeholder="选择域名…" /></SelectTrigger>
+              <Select value={field.value ? String(field.value) : undefined} onValueChange={value => field.onChange(Number(value))} disabled={domainsLoading || domains.length === 0}>
+                <SelectTrigger className="w-full" data-testid="reverse-domain-select"><SelectValue placeholder={domainsLoading ? '加载域名…' : '选择域名…'} /></SelectTrigger>
                 <SelectContent>{domains.map(d=><SelectItem key={d.id} value={String(d.id)}>{d.domain}</SelectItem>)}</SelectContent>
               </Select>
             )}
@@ -85,7 +92,7 @@ export function ReverseProxiesPage(){
         <FormField label="目标端口" error={errors.targetPort?.message} data-testid="reverse-target-port-field">
           <Input type="number" {...register('targetPort')} data-testid="reverse-target-port-input"/>
         </FormField>
-        <Button type="submit" className="self-end" data-testid="reverse-create-button">新增</Button>
+        <Button type="submit" className="self-end" disabled={domains.length === 0} data-testid="reverse-create-button">新增</Button>
         <Toggle label="代理本地端口" checked={useLocalPort} onChange={toggleLocalPort} data-testid="reverse-local-port-toggle" />
         <FormCheckbox control={control} name="preserveHost" label="Preserve Host" data-testid="reverse-preserve-host-toggle" />
         <FormCheckbox control={control} name="webSocket" label="WebSocket" data-testid="reverse-websocket-toggle" />

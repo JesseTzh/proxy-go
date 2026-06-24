@@ -92,6 +92,65 @@ func TestConfigDetailsReturnsRenderedInboundJSON(t *testing.T) {
 	}
 }
 
+func TestShareDetailsBuildsVLESSRealityVisionURI(t *testing.T) {
+	db := testutil.NewDB(t)
+	cfg := testutil.NewConfig(t)
+	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
+	svc := New(db, cfg, fakeGenerator())
+	item, err := svc.Create(context.Background(), CreateRequest{
+		Name:                   "main",
+		Template:               "vless-reality-vision",
+		DomainID:               1,
+		ListenPort:             31001,
+		RealityHandshakeServer: "www.cloudflare.com",
+		RealityHandshakePort:   443,
+		Enabled:                true,
+	})
+	if err != nil {
+		t.Fatalf("create inbound: %v", err)
+	}
+
+	share, err := svc.ShareDetails(item.ID)
+	if err != nil {
+		t.Fatalf("share details: %v", err)
+	}
+
+	want := "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&flow=xtls-rprx-vision&fp=chrome&pbk=public-key&security=reality&sid=abcd1234&sni=www.cloudflare.com&type=tcp#main"
+	if share.URI != want {
+		t.Fatalf("unexpected share uri:\nwant %s\n got %s", want, share.URI)
+	}
+	if share.Domain != "proxy.example.com" || share.Template != "vless-reality-vision" {
+		t.Fatalf("unexpected share metadata: %#v", share)
+	}
+}
+
+func TestShareDetailsBuildsVLESSXHTTPURI(t *testing.T) {
+	db := testutil.NewDB(t)
+	cfg := testutil.NewConfig(t)
+	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
+	svc := New(db, cfg, fakeGenerator())
+	item, err := svc.Create(context.Background(), CreateRequest{
+		Name:       "xhttp",
+		Template:   "vless-xhttp",
+		DomainID:   1,
+		ListenPort: 31002,
+		Enabled:    true,
+	})
+	if err != nil {
+		t.Fatalf("create inbound: %v", err)
+	}
+
+	share, err := svc.ShareDetails(item.ID)
+	if err != nil {
+		t.Fatalf("share details: %v", err)
+	}
+
+	want := "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&mode=auto&path=%2Fxhttp&pbk=public-key&security=reality&sid=abcd1234&sni=proxy.example.com&type=xhttp#xhttp"
+	if share.URI != want {
+		t.Fatalf("unexpected share uri:\nwant %s\n got %s", want, share.URI)
+	}
+}
+
 func fakeGenerator() xray.StaticCredentialGenerator {
 	return xray.StaticCredentialGenerator{Credentials: xray.Credentials{
 		UUID:              "11111111-1111-1111-1111-111111111111",

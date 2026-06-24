@@ -46,6 +46,7 @@ func Router(d Deps) *gin.Engine {
 	protected.POST("/inbounds/:id/enable", handlers.SetInboundEnabled(d, true))
 	protected.POST("/inbounds/:id/disable", handlers.SetInboundEnabled(d, false))
 	protected.GET("/inbounds/:id/config", handlers.InboundConfig(d))
+	protected.GET("/inbounds/:id/share", handlers.InboundShare(d))
 	protected.GET("/runtime/status", handlers.RuntimeStatus(d))
 	protected.POST("/runtime/apply", handlers.ApplyRuntime(d))
 	protected.POST("/runtime/nginx/start", handlers.StartNginx(d))
