@@ -52,7 +52,8 @@ func seedDefaults(db *gorm.DB, cfg *config.Config) error {
 		name    string
 		enabled bool
 	}{
-		{"VLESS XHTTP Reality", true},
+		{"VLESS Reality Vision", true},
+		{"AnyTLS", true},
 	}
 	for _, c := range caps {
 		var cap models.ProtocolCapability

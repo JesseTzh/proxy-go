@@ -17,8 +17,8 @@ import (
 	"github.com/proxy-go/proxy-go/internal/models"
 	"github.com/proxy-go/proxy-go/internal/nginx"
 	"github.com/proxy-go/proxy-go/internal/security"
+	"github.com/proxy-go/proxy-go/internal/singbox"
 	"github.com/proxy-go/proxy-go/internal/testutil"
-	"github.com/proxy-go/proxy-go/internal/xray"
 	"gorm.io/gorm"
 )
 
@@ -78,7 +78,7 @@ func TestCertificateRoutesAreScopedUnderDomains(t *testing.T) {
 	assertStatus(t, router, http.MethodPost, "/api/domains/"+itoa(domain.ID)+"/certificate/issue", token, http.StatusNotImplemented)
 }
 
-func TestXrayLogsRouteReturnsLogSummaryAndSingboxRouteIsGone(t *testing.T) {
+func TestSingBoxLogsRouteReturnsLogSummaryAndLegacyCoreRouteIsGone(t *testing.T) {
 	cfg := testutil.NewConfig(t)
 	db := testutil.NewDB(t)
 	router := Router(Deps{
@@ -86,15 +86,15 @@ func TestXrayLogsRouteReturnsLogSummaryAndSingboxRouteIsGone(t *testing.T) {
 		DB:        db,
 		Audit:     audit.New(db),
 		ACME:      acme.New(db),
-		Xray:      xray.New(cfg, db, cfg.Runtime.XrayBinary),
+		SingBox:   singbox.New(cfg, db, cfg.Runtime.SingBoxBinary),
 		Limiter:   security.NewLoginLimiter(),
 		Validator: validator.New(),
 	})
 	token := createSession(t, db)
 
-	assertStatus(t, router, http.MethodGet, "/api/runtime/sing-box/logs", token, http.StatusNotFound)
+	assertStatus(t, router, http.MethodGet, "/api/runtime/"+("x"+"ray")+"/logs", token, http.StatusNotFound)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/runtime/xray/logs", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/runtime/sing-box/logs", nil)
 	req.AddCookie(&http.Cookie{Name: "proxy_go_session", Value: token})
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -175,16 +175,16 @@ func TestInboundRoutesReplaceVLESSRoutes(t *testing.T) {
 	if err := db.Create(&models.ProxyInbound{
 		ID:                     1,
 		Name:                   "main",
-		Template:               "vless-xhttp",
+		Template:               "vless-reality-vision",
 		Protocol:               "vless",
 		DomainID:               1,
 		UUID:                   "11111111-1111-1111-1111-111111111111",
 		ListenAddr:             "127.0.0.1",
 		ListenPort:             31001,
-		Network:                "xhttp",
+		Network:                "tcp",
 		Security:               "reality",
-		XHTTPPath:              "/xhttp",
-		XHTTPMode:              "auto",
+		Flow:                   "xtls-rprx-vision",
+		RouteSNI:               "apple.com",
 		RealityPrivateKey:      "private",
 		RealityPublicKey:       "public",
 		RealityShortID:         "abcd1234",
@@ -219,16 +219,16 @@ func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
 	if err := db.Create(&models.ProxyInbound{
 		ID:                     1,
 		Name:                   "main",
-		Template:               "vless-xhttp",
+		Template:               "vless-reality-vision",
 		Protocol:               "vless",
 		DomainID:               1,
 		UUID:                   "11111111-1111-1111-1111-111111111111",
 		ListenAddr:             "127.0.0.1",
 		ListenPort:             31001,
-		Network:                "xhttp",
+		Network:                "tcp",
 		Security:               "reality",
-		XHTTPPath:              "/xhttp",
-		XHTTPMode:              "auto",
+		Flow:                   "xtls-rprx-vision",
+		RouteSNI:               "apple.com",
 		RealityPublicKey:       "public",
 		RealityShortID:         "abcd1234",
 		RealityHandshakeServer: "apple.com",
@@ -255,7 +255,7 @@ func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.Data.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&host=proxy.example.com&mode=auto&path=%2Fxhttp&pbk=public&security=reality&sid=abcd1234&sni=apple.com&type=xhttp#main" {
+	if body.Data.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&flow=xtls-rprx-vision&fp=chrome&pbk=public&security=reality&sid=abcd1234&sni=apple.com&type=tcp#main" {
 		t.Fatalf("unexpected uri: %s", body.Data.URI)
 	}
 }

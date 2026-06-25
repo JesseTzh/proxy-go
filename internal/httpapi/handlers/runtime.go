@@ -9,7 +9,7 @@ import (
 	"github.com/proxy-go/proxy-go/internal/nginx"
 	"github.com/proxy-go/proxy-go/internal/security"
 	runtimesvc "github.com/proxy-go/proxy-go/internal/services/runtime"
-	"github.com/proxy-go/proxy-go/internal/xray"
+	"github.com/proxy-go/proxy-go/internal/singbox"
 )
 
 func RuntimeStatus(d Deps) gin.HandlerFunc {
@@ -76,9 +76,9 @@ func RestartNginx(d Deps) gin.HandlerFunc {
 	}
 }
 
-func StartXray(d Deps) gin.HandlerFunc {
+func StartSingBox(d Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if err := runtimeService(d).StartXray(c.Request.Context()); err != nil {
+		if err := runtimeService(d).StartSingBox(c.Request.Context()); err != nil {
 			response.Error(c, 500, err.Error())
 			return
 		}
@@ -86,9 +86,9 @@ func StartXray(d Deps) gin.HandlerFunc {
 	}
 }
 
-func StopXray(d Deps) gin.HandlerFunc {
+func StopSingBox(d Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if err := runtimeService(d).StopXray(c.Request.Context()); err != nil {
+		if err := runtimeService(d).StopSingBox(c.Request.Context()); err != nil {
 			response.Error(c, 500, err.Error())
 			return
 		}
@@ -96,9 +96,9 @@ func StopXray(d Deps) gin.HandlerFunc {
 	}
 }
 
-func RestartXray(d Deps) gin.HandlerFunc {
+func RestartSingBox(d Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if err := runtimeService(d).RestartXray(c.Request.Context()); err != nil {
+		if err := runtimeService(d).RestartSingBox(c.Request.Context()); err != nil {
 			response.Error(c, 500, err.Error())
 			return
 		}
@@ -106,11 +106,11 @@ func RestartXray(d Deps) gin.HandlerFunc {
 	}
 }
 
-func SetXrayDebug(d Deps, enabled bool) gin.HandlerFunc {
+func SetSingBoxDebug(d Deps, enabled bool) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 		defer cancel()
-		if err := runtimeService(d).SetXrayDebug(ctx, enabled); err != nil {
+		if err := runtimeService(d).SetSingBoxDebug(ctx, enabled); err != nil {
 			response.Error(c, 500, err.Error())
 			return
 		}
@@ -124,9 +124,9 @@ func RuntimeLogs(d Deps) gin.HandlerFunc {
 	}
 }
 
-func XrayLogs(d Deps) gin.HandlerFunc {
+func SingBoxLogs(d Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		response.JSON(c, 200, runtimeService(d).XrayLogs())
+		response.JSON(c, 200, runtimeService(d).SingBoxLogs())
 	}
 }
 
@@ -143,10 +143,10 @@ func NginxConfig(d Deps) gin.HandlerFunc {
 
 func runtimeService(d Deps) *runtimesvc.Service {
 	return &runtimesvc.Service{
-		DB:    d.DB,
-		Cfg:   d.Cfg,
-		Nginx: nginxRuntimeAdapter{service: d.Nginx},
-		Xray:  xrayRuntimeAdapter{service: d.Xray},
+		DB:      d.DB,
+		Cfg:     d.Cfg,
+		Nginx:   nginxRuntimeAdapter{service: d.Nginx},
+		SingBox: singBoxRuntimeAdapter{service: d.SingBox},
 	}
 }
 
@@ -161,17 +161,17 @@ func (a nginxRuntimeAdapter) Stop(ctx context.Context) error    { return a.servi
 func (a nginxRuntimeAdapter) Restart(ctx context.Context) error { return a.service.Restart(ctx) }
 func (a nginxRuntimeAdapter) Status() any                       { return a.service.Status() }
 
-type xrayRuntimeAdapter struct {
-	service *xray.Service
+type singBoxRuntimeAdapter struct {
+	service *singbox.Service
 }
 
-func (a xrayRuntimeAdapter) Apply(ctx context.Context) error { return a.service.Apply(ctx) }
-func (a xrayRuntimeAdapter) Start(ctx context.Context) error { return a.service.Start(ctx) }
-func (a xrayRuntimeAdapter) Stop(ctx context.Context) error  { return a.service.Stop(ctx) }
-func (a xrayRuntimeAdapter) Restart(ctx context.Context) error {
+func (a singBoxRuntimeAdapter) Apply(ctx context.Context) error { return a.service.Apply(ctx) }
+func (a singBoxRuntimeAdapter) Start(ctx context.Context) error { return a.service.Start(ctx) }
+func (a singBoxRuntimeAdapter) Stop(ctx context.Context) error  { return a.service.Stop(ctx) }
+func (a singBoxRuntimeAdapter) Restart(ctx context.Context) error {
 	return a.service.Restart(ctx)
 }
-func (a xrayRuntimeAdapter) Status() any { return a.service.Status() }
-func (a xrayRuntimeAdapter) Logs() []string {
+func (a singBoxRuntimeAdapter) Status() any { return a.service.Status() }
+func (a singBoxRuntimeAdapter) Logs() []string {
 	return a.service.Logs()
 }

@@ -7,7 +7,7 @@ CACHE_DIR="${ROOT_DIR}/.cache/xray-darwin-arm64-${XRAY_VERSION}"
 DEFAULT_XRAY_BIN="${CACHE_DIR}/xray"
 XRAY_BIN="${XRAY_BIN:-$DEFAULT_XRAY_BIN}"
 SOCKS_PORT="${SOCKS_PORT:-10808}"
-TEST_URL="${TEST_URL:-https://www.youtube.com/generate_204}"
+TEST_URL="${TEST_URL:-https://www.google.com/}"
 VLESS_URI=""
 XRAY_PID=""
 TEST_TMP_DIR=""
@@ -19,7 +19,7 @@ Usage:
 
 Environment:
   SOCKS_PORT=10808
-  TEST_URL=https://www.youtube.com/generate_204
+  TEST_URL=https://www.google.com/
   XRAY_BIN=/path/to/xray
   XRAY_VERSION=latest
 
@@ -180,11 +180,30 @@ console.log(JSON.stringify(config, null, 2));
 NODE
 }
 
+cleanup() {
+  local status=$?
+  if [[ -n "${XRAY_PID:-}" ]]; then
+    kill "$XRAY_PID" >/dev/null 2>&1 || true
+    # Ensure the proxy dies immediately so it cannot leak into later tests.
+    for _ in 1 2 3 4 5; do
+      kill -0 "$XRAY_PID" >/dev/null 2>&1 || break
+      sleep 0.1
+    done
+    kill -9 "$XRAY_PID" >/dev/null 2>&1 || true
+  fi
+  if [[ -n "${TEST_TMP_DIR:-}" ]]; then
+    rm -rf "$TEST_TMP_DIR"
+  fi
+  exit "$status"
+}
+
 run_test() {
-  local config_path log_path
+  local config_path log_path body_path
   TEST_TMP_DIR="$(mktemp -d)"
+  trap cleanup EXIT INT TERM
   config_path="${TEST_TMP_DIR}/client.json"
   log_path="${TEST_TMP_DIR}/xray.log"
+  body_path="${TEST_TMP_DIR}/body.html"
   write_config "$config_path"
 
   echo "Using Xray: $XRAY_BIN"
@@ -195,7 +214,6 @@ run_test() {
   echo "Starting local SOCKS proxy on 127.0.0.1:${SOCKS_PORT}..."
   "$XRAY_BIN" run -config "$config_path" >"$log_path" 2>&1 &
   XRAY_PID="$!"
-  trap 'if [[ -n "${XRAY_PID:-}" ]]; then kill "$XRAY_PID" >/dev/null 2>&1 || true; fi; if [[ -n "${TEST_TMP_DIR:-}" ]]; then rm -rf "$TEST_TMP_DIR"; fi' EXIT
   sleep 1
 
   if ! kill -0 "$XRAY_PID" >/dev/null 2>&1; then
@@ -205,17 +223,36 @@ run_test() {
   fi
 
   echo "Testing through proxy: $TEST_URL"
-  if curl --socks5-hostname "127.0.0.1:${SOCKS_PORT}" -fsSIL --max-time 30 "$TEST_URL"; then
-    echo
-    echo "Proxy test succeeded."
-  else
-    local code="$?"
-    echo
+  local http_code
+  http_code="$(curl --socks5-hostname "127.0.0.1:${SOCKS_PORT}" -fsSL \
+    --max-time 30 -w '%{http_code}' -o "$body_path" "$TEST_URL" 2>/dev/null)" || {
+    local code=$?
     echo "Proxy test failed with curl exit code ${code}." >&2
     echo "Xray log tail:" >&2
     tail -n 120 "$log_path" >&2
     exit "$code"
+  }
+
+  if [[ "$http_code" != "200" ]]; then
+    echo "Proxy test failed: expected HTTP 200, got ${http_code}." >&2
+    echo "Response body (first 200 bytes):" >&2
+    head -c 200 "$body_path" >&2; echo >&2
+    exit 1
   fi
+
+  # Require real page content, not just an empty 2xx. Case-insensitive because
+  # Google's markup varies by locale/device.
+  if ! grep -iq '<html' "$body_path" || ! grep -iq 'google' "$body_path"; then
+    echo "Proxy test failed: response is not the expected Google homepage." >&2
+    echo "Response body (first 500 bytes):" >&2
+    head -c 500 "$body_path" >&2; echo >&2
+    exit 1
+  fi
+
+  local bytes
+  bytes="$(wc -c < "$body_path" | tr -d ' ')"
+  echo "Proxy test succeeded."
+  echo "  HTTP ${http_code}, ${bytes} bytes of HTML from ${TEST_URL}"
 }
 
 detect_platform

@@ -11,16 +11,16 @@ const expectations = [
   [formFieldSource, 'HelpCircle', 'help icon'],
   [formFieldSource, '`${dataTestId}-help`', 'field help test id'],
   [formFieldSource, '`${dataTestId}-tooltip`', 'field tooltip test id'],
-  [vlessSource, 'VLESS XHTTP Reality', 'xhttp reality default name'],
+  [vlessSource, 'VLESS Reality Vision', 'vision default name'],
+  [vlessSource, 'AnyTLS', 'anytls option'],
   [vlessSource, 'label="客户端连接域名"', 'client connection domain label'],
-  [vlessSource, '客户端实际连接的域名', 'client domain explanation'],
-  [vlessSource, '普通 HTTPS 会按该域名进入内部 Nginx', 'client domain routes normal https explanation'],
+  [vlessSource, 'Reality Vision 客户端实际连接的域名', 'vision domain explanation'],
+  [vlessSource, 'AnyTLS 使用该域名作为 TLS 证书域名和 SNI 分流入口', 'anytls domain explanation'],
   [vlessSource, '公网 443 由 Nginx stream 统一监听', 'public entry note'],
   [vlessSource, 'label="REALITY 握手服务器"', 'reality handshake server label'],
-  [vlessSource, 'REALITY 客户端使用的伪装 SNI', 'handshake server explanation'],
+  [vlessSource, 'Reality Vision 客户端使用的伪装 SNI', 'handshake server explanation'],
   [vlessSource, '例如 apple.com', 'apple handshake server example'],
   [vlessSource, '不要填写已托管域名', 'managed domain conflict explanation'],
-  [vlessSource, 'label="XHTTP 路径"', 'xhttp path label'],
 ]
 
 const missing = expectations.filter(([source, needle]) => !source.includes(needle))
@@ -33,10 +33,9 @@ if (missing.length > 0) {
 }
 
 const forbidden = [
-  'vless-reality-vision',
-  'Reality Vision',
   'label="模板"',
-  'label="Xray 监听端口"',
+  'label="' + 'X' + 'ray 监听端口"',
+  'X' + 'ray',
   'label="安全层"',
   'TLS 模式不会使用该字段',
   'Nginx 站点并转发对应路径',
@@ -44,8 +43,10 @@ const forbidden = [
   'inbound-public-entry-field',
   'label="REALITY 握手端口"',
   'realityHandshakePort',
-  'label="XHTTP 模式"',
-  'inbound-xhttp-mode-field',
+  'label="' + 'X' + 'HTTP 模式"',
+  'label="' + 'X' + 'HTTP 路径"',
+  'inbound-' + 'x' + 'http-section',
+  'inbound-' + 'x' + 'http-mode-field',
   'label="最大时间差"',
   'inbound-max-time-diff-field',
   'inbound-enabled-field',

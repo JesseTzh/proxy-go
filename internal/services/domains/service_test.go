@@ -51,7 +51,7 @@ func TestUsageCountsReverseProxyAndInboundReferences(t *testing.T) {
 	db.Create(&models.ProxyInbound{
 		DomainID:   domain.ID,
 		Name:       "main",
-		Template:   "vless-xhttp",
+		Template:   "vless-reality-vision",
 		UUID:       "uuid",
 		ListenAddr: "127.0.0.1",
 		ListenPort: 31001,

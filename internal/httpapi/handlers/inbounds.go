@@ -11,16 +11,23 @@ import (
 	"github.com/proxy-go/proxy-go/internal/models"
 	"github.com/proxy-go/proxy-go/internal/security"
 	inboundsvc "github.com/proxy-go/proxy-go/internal/services/inbounds"
-	"github.com/proxy-go/proxy-go/internal/xray"
+	"github.com/proxy-go/proxy-go/internal/singbox"
 	"gorm.io/gorm"
 )
 
 type inboundResponse struct {
 	ID                     uint          `json:"id"`
 	Name                   string        `json:"name"`
+	Template               string        `json:"template"`
+	Protocol               string        `json:"protocol"`
 	DomainID               uint          `json:"domainId"`
 	Domain                 models.Domain `json:"domain"`
-	XHTTPPath              string        `json:"xhttpPath"`
+	Network                string        `json:"network"`
+	Security               string        `json:"security"`
+	Flow                   string        `json:"flow"`
+	RouteSNI               string        `json:"routeSni"`
+	ListenAddr             string        `json:"listenAddr"`
+	ListenPort             int           `json:"listenPort"`
 	RealityHandshakeServer string        `json:"realityHandshakeServer"`
 	Enabled                bool          `json:"enabled"`
 }
@@ -173,7 +180,7 @@ func InboundShare(d Deps) gin.HandlerFunc {
 }
 
 func inboundService(d Deps) *inboundsvc.Service {
-	return inboundsvc.New(d.DB, d.Cfg, xray.CLICredentialGenerator{Binary: d.Cfg.Runtime.XrayBinary})
+	return inboundsvc.New(d.DB, d.Cfg, singbox.CLICredentialGenerator{Binary: d.Cfg.Runtime.SingBoxBinary})
 }
 
 func inboundResponses(items []models.ProxyInbound) []inboundResponse {
@@ -188,9 +195,16 @@ func toInboundResponse(item models.ProxyInbound) inboundResponse {
 	return inboundResponse{
 		ID:                     item.ID,
 		Name:                   item.Name,
+		Template:               item.Template,
+		Protocol:               item.Protocol,
 		DomainID:               item.DomainID,
 		Domain:                 item.Domain,
-		XHTTPPath:              item.XHTTPPath,
+		Network:                item.Network,
+		Security:               item.Security,
+		Flow:                   item.Flow,
+		RouteSNI:               item.RouteSNI,
+		ListenAddr:             item.ListenAddr,
+		ListenPort:             item.ListenPort,
 		RealityHandshakeServer: item.RealityHandshakeServer,
 		Enabled:                item.Enabled,
 	}

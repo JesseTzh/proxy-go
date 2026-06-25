@@ -1,4 +1,4 @@
-package xray
+package singbox
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/proxy-go/proxy-go/internal/config"
@@ -23,19 +24,19 @@ type Service struct {
 	Proc   *process.ManagedProcess
 }
 
-var ErrProxyInboundRequired = errors.New("xray proxy inbound is required before start")
+var ErrProxyInboundRequired = errors.New("sing-box proxy inbound is required before start")
 
 func New(cfg *config.Config, db *gorm.DB, binary string) *Service {
-	conf := filepath.Join(cfg.Paths.XrayConfDir, "config.json")
+	conf := filepath.Join(cfg.Paths.SingBoxConfDir, "config.json")
 	return &Service{
 		cfg:    cfg,
 		db:     db,
 		Binary: binary,
 		Proc: &process.ManagedProcess{
-			Name: "xray",
+			Name: "sing-box",
 			Path: binary,
-			Args: []string{"run", "-config", conf},
-			Dir:  cfg.Paths.XrayConfDir,
+			Args: []string{"run", "-c", conf},
+			Dir:  cfg.Paths.SingBoxConfDir,
 		},
 	}
 }
@@ -50,23 +51,23 @@ func (s *Service) GenerateConfig() ([]byte, error) {
 
 func (s *Service) Apply(ctx context.Context) error {
 	started := time.Now()
-	slog.Info("xray apply starting", "binary", s.Binary, "confDir", s.cfg.Paths.XrayConfDir)
+	slog.Info("sing-box apply starting", "binary", s.Binary, "confDir", s.cfg.Paths.SingBoxConfDir)
 	b, err := s.GenerateConfig()
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(s.cfg.Paths.XrayConfDir, 0755); err != nil {
+	if err := os.MkdirAll(s.cfg.Paths.SingBoxConfDir, 0755); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(s.cfg.Paths.LogDir, 0755); err != nil {
 		return err
 	}
-	tmpFile, err := os.CreateTemp(s.cfg.Paths.XrayConfDir, ".config-*.json")
+	tmpFile, err := os.CreateTemp(s.cfg.Paths.SingBoxConfDir, ".config-*.json")
 	if err != nil {
 		return err
 	}
 	tmp := tmpFile.Name()
-	final := filepath.Join(s.cfg.Paths.XrayConfDir, "config.json")
+	final := filepath.Join(s.cfg.Paths.SingBoxConfDir, "config.json")
 	if _, err := tmpFile.Write(b); err != nil {
 		_ = tmpFile.Close()
 		_ = os.Remove(tmp)
@@ -76,7 +77,7 @@ func (s *Service) Apply(ctx context.Context) error {
 		_ = os.Remove(tmp)
 		return err
 	}
-	slog.Info("xray config rendered", "path", tmp, "bytes", len(b))
+	slog.Info("sing-box config rendered", "path", tmp, "bytes", len(b))
 	if err := s.Check(ctx, tmp); err != nil {
 		_ = os.Remove(tmp)
 		return err
@@ -87,7 +88,7 @@ func (s *Service) Apply(ctx context.Context) error {
 	if err := s.Proc.Restart(ctx); err != nil {
 		return err
 	}
-	slog.Info("xray apply completed", "config", final, "elapsed", time.Since(started).String())
+	slog.Info("sing-box apply completed", "config", final, "elapsed", time.Since(started).String())
 	return nil
 }
 
@@ -121,17 +122,17 @@ func (s *Service) Check(ctx context.Context, conf string) error {
 	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	started := time.Now()
-	slog.Info("xray config check starting", "binary", s.Binary, "config", conf)
-	cmd := exec.CommandContext(cctx, s.Binary, "run", "-test", "-config", conf)
+	slog.Info("sing-box config check starting", "binary", s.Binary, "config", conf)
+	cmd := exec.CommandContext(cctx, s.Binary, "check", "-c", conf)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		checkErr := fmt.Errorf("xray config test failed: %w: %s", err, string(out))
+		checkErr := fmt.Errorf("sing-box config check failed: %w: %s", err, strings.TrimSpace(string(out)))
 		if s.Proc != nil {
 			s.Proc.AppendLog(checkErr.Error() + "\n")
 		}
 		return checkErr
 	}
-	slog.Info("xray config check completed", "elapsed", time.Since(started).String())
+	slog.Info("sing-box config check completed", "elapsed", time.Since(started).String())
 	return nil
 }
 

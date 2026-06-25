@@ -20,9 +20,9 @@ import type { InboundShare, ProxyInbound } from '../types'
 const JsonView = lazy(() => import('@uiw/react-json-view'))
 
 const defaults: InboundFormValues = {
-  name: 'VLESS XHTTP Reality',
+  template: 'vless-reality-vision',
+  name: 'VLESS Reality Vision',
   domainId: 1,
-  xhttpPath: '/xhttp',
   realityHandshakeServer: 'apple.com',
 }
 
@@ -112,9 +112,9 @@ export function VlessPage() {
     try {
       const result = await fetchShare(item)
       await navigator.clipboard.writeText(result.uri)
-      toast.success('VLESS 链接已复制')
+      toast.success('代理链接已复制')
     } catch {
-      toast.error('复制 VLESS 链接失败')
+      toast.error('复制代理链接失败')
     } finally {
       setBusy(undefined)
     }
@@ -140,20 +140,21 @@ export function VlessPage() {
   return (
     <div className="space-y-4" data-testid="inbounds-page">
       <div className="flex flex-wrap items-start justify-between gap-3" data-testid="inbounds-toolbar">
-        <PageHeader title="代理入口" desc="管理经 Nginx SNI 分流进入 Xray 的 VLESS XHTTP REALITY 入站。" data-testid="inbounds-header" />
+        <PageHeader title="代理入口" desc="管理经 Nginx SNI 分流进入 sing-box 的 Reality Vision 与 AnyTLS 入站。" data-testid="inbounds-header" />
         <Button onClick={openCreate} data-testid="inbound-create-button">
           <Plus size={16} aria-hidden="true" />
           新增入口
         </Button>
       </div>
 
-      <DataTable headers={['名称', '客户端域名', '分流入口', 'XHTTP 路径', '状态', '操作']} data-testid="inbounds-table">
+      <DataTable headers={['名称', '协议', '客户端域名', '分流 SNI', '本地监听', '状态', '操作']} data-testid="inbounds-table">
         {items.map(item => (
           <TableRow key={item.id} data-testid={`inbound-row-${item.id}`}>
             <TableCell>{item.name}</TableCell>
+            <TableCell>{protocolLabel(item.template)}</TableCell>
             <TableCell>{item.domain?.domain || domainNameForValue(domains, item.domainId, '-')}</TableCell>
+            <TableCell>{item.routeSni || '-'}</TableCell>
             <TableCell>{formatInboundListen(item)}</TableCell>
-            <TableCell>{item.xhttpPath || '/xhttp'}</TableCell>
             <TableCell><StatusBadge tone={item.enabled ? 'success' : 'neutral'}>{item.enabled ? '启用' : '停用'}</StatusBadge></TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-2" data-testid={`inbound-actions-${item.id}`}>
@@ -231,7 +232,7 @@ export function VlessPage() {
               data-testid="inbound-share-uri"
             />
             <DialogFooter>
-              <Button variant="outline" type="button" onClick={() => share?.uri && navigator.clipboard.writeText(share.uri).then(() => toast.success('VLESS 链接已复制')).catch(() => toast.error('复制 VLESS 链接失败'))} data-testid="inbound-share-copy-button">
+              <Button variant="outline" type="button" onClick={() => share?.uri && navigator.clipboard.writeText(share.uri).then(() => toast.success('代理链接已复制')).catch(() => toast.error('复制代理链接失败'))} data-testid="inbound-share-copy-button">
                 <Copy size={15} aria-hidden="true" />
                 复制链接
               </Button>
@@ -256,10 +257,11 @@ function InboundDialog({
   onClose: () => void
   onSubmit: (values: InboundFormValues) => Promise<void>
 }) {
-  const { control, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<InboundFormInput, unknown, InboundFormValues>({
+  const { control, register, watch, handleSubmit, formState: { errors, isSubmitting } } = useForm<InboundFormInput, unknown, InboundFormValues>({
     resolver: zodResolver(inboundSchema),
     defaultValues: initial,
   })
+  const template = watch('template')
 
   return (
     <Dialog open onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
@@ -272,12 +274,29 @@ function InboundDialog({
             className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
             data-testid="inbound-public-entry-note"
           >
-            公网 443 由 Nginx stream 统一监听；匹配 REALITY SNI 的流量转发到本机 Xray 入站。
+            公网 443 由 Nginx stream 统一监听；匹配分流 SNI 后透传到本机 sing-box 入站。
           </div>
 
           <section className="grid gap-3" data-testid="inbound-basic-section">
             <h3 className="text-sm font-medium text-neutral-900" data-testid="inbound-basic-section-title">基础信息</h3>
             <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-basic-section-fields">
+              <FormField label="协议模板" error={errors.template?.message} data-testid="inbound-template-field">
+                <Controller
+                  control={control}
+                  name="template"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger className="w-full" data-testid="inbound-template-select">
+                        <SelectValue placeholder="选择协议…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="vless-reality-vision" label="VLESS Reality Vision">VLESS Reality Vision</SelectItem>
+                        <SelectItem value="anytls" label="AnyTLS">AnyTLS</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </FormField>
               <FormField label="名称" error={errors.name?.message} data-testid="inbound-name-field">
                 <Input {...register('name')} data-testid="inbound-name-input" />
               </FormField>
@@ -289,7 +308,7 @@ function InboundDialog({
             <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-entry-section-fields">
               <FormField
                 label="客户端连接域名"
-                description="客户端实际连接的域名，仅用于生成分享链接的 Host；普通 HTTPS 会按该域名进入内部 Nginx。"
+                description={template === 'anytls' ? 'AnyTLS 使用该域名作为 TLS 证书域名和 SNI 分流入口。' : 'Reality Vision 客户端实际连接的域名，用于生成分享链接地址。'}
                 error={errors.domainId?.message}
                 data-testid="inbound-domain-field"
               >
@@ -313,28 +332,21 @@ function InboundDialog({
             </div>
           </section>
 
-          <section className="grid gap-3" data-testid="inbound-reality-section">
-            <h3 className="text-sm font-medium text-neutral-900" data-testid="inbound-reality-section-title">REALITY</h3>
-            <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-reality-section-fields">
-              <FormField
-                label="REALITY 握手服务器"
-                description="REALITY 客户端使用的伪装 SNI，会写入分享链接 sni、Nginx stream 分流规则和 Xray serverNames，例如 apple.com。不要填写已托管域名。"
-                error={errors.realityHandshakeServer?.message}
-                data-testid="inbound-handshake-server-field"
-              >
-                <Input {...register('realityHandshakeServer')} data-testid="inbound-handshake-server-input" />
-              </FormField>
-            </div>
-          </section>
-
-          <section className="grid gap-3" data-testid="inbound-xhttp-section">
-            <h3 className="text-sm font-medium text-neutral-900" data-testid="inbound-xhttp-section-title">XHTTP</h3>
-            <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-xhttp-section-fields">
-              <FormField label="XHTTP 路径" error={errors.xhttpPath?.message} data-testid="inbound-xhttp-path-field">
-                <Input {...register('xhttpPath')} data-testid="inbound-xhttp-path-input" />
-              </FormField>
-            </div>
-          </section>
+          {template === 'vless-reality-vision' ? (
+            <section className="grid gap-3" data-testid="inbound-reality-section">
+              <h3 className="text-sm font-medium text-neutral-900" data-testid="inbound-reality-section-title">REALITY</h3>
+              <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-reality-section-fields">
+                <FormField
+                  label="REALITY 握手服务器"
+                  description="Reality Vision 客户端使用的伪装 SNI，会写入分享链接 sni、Nginx stream 分流规则和 sing-box reality handshake，例如 apple.com。不要填写已托管域名。"
+                  error={errors.realityHandshakeServer?.message}
+                  data-testid="inbound-handshake-server-field"
+                >
+                  <Input {...register('realityHandshakeServer')} data-testid="inbound-handshake-server-input" />
+                </FormField>
+              </div>
+            </section>
+          ) : null}
 
           <DialogFooter>
             <Button variant="outline" type="button" onClick={onClose} data-testid="inbound-cancel-button">取消</Button>
@@ -348,15 +360,20 @@ function InboundDialog({
 
 function valuesFromItem(item: ProxyInbound): InboundFormValues {
   return {
+    template: item.template,
     name: item.name,
     domainId: item.domainId,
-    xhttpPath: item.xhttpPath || '/xhttp',
     realityHandshakeServer: item.realityHandshakeServer || 'apple.com',
   }
 }
 
-function formatInboundListen(_item: ProxyInbound) {
-  return '0.0.0.0:443 -> 127.0.0.1:31001'
+function formatInboundListen(item: ProxyInbound) {
+  const local = item.listenAddr && item.listenPort ? `${item.listenAddr}:${item.listenPort}` : '-'
+  return `0.0.0.0:443 -> ${local}`
+}
+
+function protocolLabel(template: ProxyInbound['template']) {
+  return template === 'anytls' ? 'AnyTLS' : 'VLESS Reality Vision'
 }
 
 function domainNameForValue(domains: { id: number; domain: string }[], value: unknown, fallback: string) {

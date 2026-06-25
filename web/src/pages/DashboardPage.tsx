@@ -9,7 +9,7 @@ import { cn } from '../lib/utils'
 import { getJson, postJson } from '../lib/api'
 import type { ProcessStatus, RuntimeConfigSnapshot, RuntimeLogSummary, RuntimeStatus } from '../types'
 
-type ProcessName = 'nginx' | 'xray'
+type ProcessName = 'nginx' | 'sing-box'
 type ProcessAction = 'start' | 'stop' | 'restart'
 
 const actionLabels: Record<ProcessAction, string> = {
@@ -22,7 +22,7 @@ export function DashboardPage() {
   const [status, setStatus] = useState<RuntimeStatus>()
   const [busy, setBusy] = useState<string>()
   const [lastUpdated, setLastUpdated] = useState<Date>()
-  const [xrayLogs, setXrayLogs] = useState<string[]>([])
+  const [singBoxLogs, setSingBoxLogs] = useState<string[]>([])
   const [logsOpen, setLogsOpen] = useState(false)
   const [logsLoading, setLogsLoading] = useState(false)
   const [nginxConfig, setNginxConfig] = useState<RuntimeConfigSnapshot>()
@@ -53,12 +53,12 @@ export function DashboardPage() {
     }
   }
 
-  async function showXrayLogs() {
+  async function showSingBoxLogs() {
     setLogsOpen(true)
     setLogsLoading(true)
     try {
-      const result = await getJson<RuntimeLogSummary>('runtime/xray/logs')
-      setXrayLogs(result.logs ?? [])
+      const result = await getJson<RuntimeLogSummary>('runtime/sing-box/logs')
+      setSingBoxLogs(result.logs ?? [])
     } catch {
       // global error dialog handles API failures
     } finally {
@@ -79,12 +79,12 @@ export function DashboardPage() {
     }
   }
 
-  async function toggleXrayDebug() {
-    const enabled = Boolean(status?.xrayDebugEnabled)
-    setBusy('xray-debug')
+  async function toggleSingBoxDebug() {
+    const enabled = Boolean(status?.singBoxDebugEnabled)
+    setBusy('sing-box-debug')
     try {
-      await postJson(`runtime/xray/debug/${enabled ? 'disable' : 'enable'}`)
-      toast.success(enabled ? 'Xray 调试日志已关闭' : 'Xray 调试日志已开启')
+      await postJson(`runtime/sing-box/debug/${enabled ? 'disable' : 'enable'}`)
+      toast.success(enabled ? 'sing-box 调试日志已关闭' : 'sing-box 调试日志已开启')
       void load()
     } catch {
       // global error dialog handles API failures
@@ -176,16 +176,16 @@ export function DashboardPage() {
             data-testid="dashboard-process-nginx"
           />
           <ProcessCard
-            title="Xray"
-            process="xray"
-            status={status?.xray}
-            listen={formatXrayListen(status)}
+            title="sing-box"
+            process="sing-box"
+            status={status?.singBox}
+            listen={formatSingBoxListen(status)}
             busy={busy}
             onAction={control}
-            onLogs={showXrayLogs}
-            onDebug={toggleXrayDebug}
-            debugEnabled={status?.xrayDebugEnabled}
-            data-testid="dashboard-process-xray"
+            onLogs={showSingBoxLogs}
+            onDebug={toggleSingBoxDebug}
+            debugEnabled={status?.singBoxDebugEnabled}
+            data-testid="dashboard-process-sing-box"
           />
         </div>
       </section>
@@ -196,11 +196,11 @@ export function DashboardPage() {
             <DialogHeader className="px-4 pt-4">
               <DialogTitle className="flex items-center gap-2">
                 <ScrollText size={18} aria-hidden="true" />
-                Xray 日志
+                sing-box 日志
               </DialogTitle>
             </DialogHeader>
             <pre className="m-0 min-h-64 max-h-[70vh] overflow-auto rounded-b-xl bg-neutral-950 p-4 text-xs leading-5 text-neutral-100 whitespace-pre-wrap">
-              {logsLoading ? '加载中…' : xrayLogs.length ? xrayLogs.join('\n') : '暂无日志'}
+              {logsLoading ? '加载中…' : singBoxLogs.length ? singBoxLogs.join('\n') : '暂无日志'}
             </pre>
           </DialogContent>
         </Dialog>
@@ -294,7 +294,7 @@ function ProcessCard({
           </Button>
         ) : null}
         {onDebug ? (
-          <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" disabled={busy === 'xray-debug'} onClick={onDebug} data-testid={`${dataTestId}-debug`}>
+          <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" disabled={busy === 'sing-box-debug'} onClick={onDebug} data-testid={`${dataTestId}-debug`}>
             <Bug size={16} aria-hidden="true" />
             {debugEnabled ? '关闭调试' : '开启调试'}
           </Button>
@@ -375,8 +375,8 @@ function formatNginxListen(status?: RuntimeStatus) {
   return [publicHTTP, publicHTTPS, managed].filter(Boolean).join(', ') || '-'
 }
 
-function formatXrayListen(status?: RuntimeStatus) {
-  return status?.xrayInboundListen || '-'
+function formatSingBoxListen(status?: RuntimeStatus) {
+  return status?.singBoxInboundListen || '-'
 }
 
 function formatDateTime(date: Date) {
@@ -392,8 +392,8 @@ function formatDateTime(date: Date) {
 }
 
 function ProcessLogo({ process, 'data-testid': dataTestId }: { process: ProcessName; 'data-testid'?: string }) {
-  const src = process === 'nginx' ? '/svg/nginx.svg' : '/svg/xray.svg'
-  const alt = process === 'nginx' ? 'Nginx' : 'Xray'
+  const src = process === 'nginx' ? '/svg/nginx.svg' : '/svg/sing-box.svg'
+  const alt = process === 'nginx' ? 'Nginx' : 'sing-box'
 
   return (
     <div className="grid size-16 place-items-center rounded-2xl bg-white p-3 shadow-[var(--shadow-border)]" data-testid={dataTestId}>

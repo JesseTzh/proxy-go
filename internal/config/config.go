@@ -30,14 +30,14 @@ type ServerConfig struct {
 }
 
 type PathsConfig struct {
-	DataDir      string `koanf:"data_dir"`
-	LogDir       string `koanf:"log_dir"`
-	DBFile       string `koanf:"db_file"`
-	CertDir      string `koanf:"cert_dir"`
-	BinDir       string `koanf:"bin_dir"`
-	NginxConfDir string `koanf:"nginx_conf_dir"`
-	XrayConfDir  string `koanf:"xray_conf_dir"`
-	WebRoot      string `koanf:"web_root"`
+	DataDir        string `koanf:"data_dir"`
+	LogDir         string `koanf:"log_dir"`
+	DBFile         string `koanf:"db_file"`
+	CertDir        string `koanf:"cert_dir"`
+	BinDir         string `koanf:"bin_dir"`
+	NginxConfDir   string `koanf:"nginx_conf_dir"`
+	SingBoxConfDir string `koanf:"sing_box_conf_dir"`
+	WebRoot        string `koanf:"web_root"`
 }
 
 type SecurityConfig struct {
@@ -55,13 +55,13 @@ type ACMEConfig struct {
 type RuntimeConfig struct {
 	StartChildren bool   `koanf:"start_children"`
 	NginxBinary   string `koanf:"nginx_binary"`
-	XrayBinary    string `koanf:"xray_binary"`
+	SingBoxBinary string `koanf:"sing_box_binary"`
 }
 
 const (
-	DockerNginxBinary = "/usr/local/bin/nginx"
-	DockerXrayBinary  = "/usr/local/bin/xray"
-	DockerWebRoot     = "/usr/share/proxy-go/web"
+	DockerNginxBinary   = "/usr/local/bin/nginx"
+	DockerSingBoxBinary = "/usr/local/bin/sing-box"
+	DockerWebRoot       = "/usr/share/proxy-go/web"
 )
 
 func Load(path string) (*Config, error) {
@@ -87,7 +87,7 @@ func Load(path string) (*Config, error) {
 		_ = k.Set("acme.email", v)
 	}
 	_ = k.Set("runtime.nginx_binary", DockerNginxBinary)
-	_ = k.Set("runtime.xray_binary", DockerXrayBinary)
+	_ = k.Set("runtime.sing_box_binary", DockerSingBoxBinary)
 	_ = k.Set("paths.web_root", DockerWebRoot)
 
 	var cfg Config
@@ -114,7 +114,7 @@ func setDefaults(k *koanf.Koanf) {
 	_ = k.Set("paths.cert_dir", "/var/lib/proxy-go/certs")
 	_ = k.Set("paths.bin_dir", "/var/lib/proxy-go/bin")
 	_ = k.Set("paths.nginx_conf_dir", "/var/lib/proxy-go/nginx")
-	_ = k.Set("paths.xray_conf_dir", "/var/lib/proxy-go/xray")
+	_ = k.Set("paths.sing_box_conf_dir", "/var/lib/proxy-go/sing-box")
 	_ = k.Set("paths.web_root", DockerWebRoot)
 	_ = k.Set("security.session_ttl_hours", 24)
 	_ = k.Set("security.bcrypt_cost", 12)
@@ -122,7 +122,7 @@ func setDefaults(k *koanf.Koanf) {
 	_ = k.Set("acme.renew_before_days", 30)
 	_ = k.Set("runtime.start_children", true)
 	_ = k.Set("runtime.nginx_binary", DockerNginxBinary)
-	_ = k.Set("runtime.xray_binary", DockerXrayBinary)
+	_ = k.Set("runtime.sing_box_binary", DockerSingBoxBinary)
 }
 
 func (c Config) Validate() error {

@@ -21,12 +21,18 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 			}},
 			ProxyInbounds: []runtimeconfig.ProxyInbound{
 				{
-					Template:               "vless-xhttp",
-					Domain:                 "app.example.com",
-					ListenAddr:             "127.0.0.1",
-					ListenPort:             31002,
-					XHTTPPath:              "/xhttp",
-					RealityHandshakeServer: "apple.com",
+					Template:   "vless-reality-vision",
+					Domain:     "proxy.example.com",
+					ListenAddr: "127.0.0.1",
+					ListenPort: 31001,
+					RouteSNI:   "apple.com",
+				},
+				{
+					Template:   "anytls",
+					Domain:     "any.example.com",
+					ListenAddr: "127.0.0.1",
+					ListenPort: 31002,
+					RouteSNI:   "any.example.com",
 				},
 			},
 		},
@@ -48,17 +54,18 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 		"listen 127.0.0.1:30443 ssl;",
 		"listen 443;",
 		"ssl_preread on;",
-		"apple.com 127.0.0.1:31002;",
+		"apple.com 127.0.0.1:31001;",
+		"any.example.com 127.0.0.1:31002;",
 		"default 127.0.0.1:30443;",
 	} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("rendered config missing %q:\n%s", want, out)
 		}
 	}
-	if strings.Contains(out, "app.example.com 127.0.0.1:31002;") {
-		t.Fatalf("xhttp inbound should be routed by reality handshake SNI only:\n%s", out)
+	if strings.Contains(out, "proxy.example.com 127.0.0.1:31001;") {
+		t.Fatalf("vision inbound should be routed by explicit route SNI only:\n%s", out)
 	}
-	if strings.Contains(out, "location ^~ /xhttp") || strings.Contains(out, "proxy_pass http://127.0.0.1:31002;") {
-		t.Fatalf("nginx should not route xhttp when xray owns the public https entrypoint:\n%s", out)
+	if strings.Contains(out, "proxy_pass http://127.0.0.1:31002;") {
+		t.Fatalf("nginx should only stream proxy protocol inbounds:\n%s", out)
 	}
 }

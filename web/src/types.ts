@@ -1,10 +1,10 @@
 export type Certificate = { id: number; primaryDomain: string; status: string; expiresAt?: string; errorMessage?: string; autoRenew: boolean }
 export type Domain = { id: number; domain: string; status: string; remark: string; certificateId?: number; certificate?: Certificate; createdAt: string }
 export type ReverseProxy = { id: number; domainId: number; domain?: Domain; targetScheme: string; targetHost: string; targetPort: number; preserveHost: boolean; webSocket: boolean; passRealIp: boolean; enabled: boolean; remark: string }
-export type ProxyInbound = { id: number; name: string; domainId: number; domain?: Domain; xhttpPath: string; realityHandshakeServer: string; enabled: boolean }
+export type ProxyInbound = { id: number; name: string; template: 'vless-reality-vision' | 'anytls'; protocol: string; domainId: number; domain?: Domain; network: string; security: string; flow: string; routeSni: string; listenAddr: string; listenPort: number; realityHandshakeServer: string; enabled: boolean }
 export type InboundShare = { name: string; domain: string; uri: string }
 export type ProcessStatus = { name?: string; path?: string; running: boolean; startedAt?: string; lastError?: string }
-export type RuntimeStatus = { proxyGo: {running:boolean}; nginx: ProcessStatus; xray: ProcessStatus; goInternalAddr: string; nginxPublicHttpPort: number; nginxPublicHttpsPort: number; nginxManagedHttpsAddr: string; xrayInboundListen: string; xrayDebugEnabled: boolean; domainCount: number; certificateCount: number; reverseProxyCount: number; inboundCount: number; expiringCertificateCount: number }
+export type RuntimeStatus = { proxyGo: {running:boolean}; nginx: ProcessStatus; singBox: ProcessStatus; goInternalAddr: string; nginxPublicHttpPort: number; nginxPublicHttpsPort: number; nginxManagedHttpsAddr: string; singBoxInboundListen: string; singBoxDebugEnabled: boolean; domainCount: number; certificateCount: number; reverseProxyCount: number; inboundCount: number; expiringCertificateCount: number }
 export type RuntimeLogSummary = { logs: string[] }
 export type RuntimeConfigSnapshot = { path: string; content: string }
 export type AuditLog = { id: number; action: string; resourceType: string; resourceId: string; detail: string; ip: string; userAgent: string; createdAt: string }

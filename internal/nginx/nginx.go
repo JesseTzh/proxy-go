@@ -200,7 +200,7 @@ events { worker_connections 4096; }
 stream {
     map $ssl_preread_server_name $proxy_go_stream_backend {
         {{ range $inbound := .Inbounds }}
-        {{ $inbound.RealityHandshakeServer }} {{ $inbound.ListenAddr }}:{{ $inbound.ListenPort }};
+        {{ $inbound.RouteSNI }} {{ $inbound.ListenAddr }}:{{ $inbound.ListenPort }};
         {{ end }}
         default {{.ManagedHTTPSAddr}};
     }

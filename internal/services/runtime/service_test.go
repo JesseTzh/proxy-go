@@ -15,10 +15,10 @@ import (
 func TestApplyFailureSavesFailedStatus(t *testing.T) {
 	db := testutil.NewDB(t)
 	svc := &Service{
-		DB:    db,
-		Cfg:   testutil.NewConfig(t),
-		Nginx: &fakeApplier{},
-		Xray:  &fakeApplier{err: errors.New("xray failed")},
+		DB:      db,
+		Cfg:     testutil.NewConfig(t),
+		Nginx:   &fakeApplier{},
+		SingBox: &fakeApplier{err: errors.New("sing-box failed")},
 	}
 
 	err := svc.Apply(context.Background())
@@ -36,16 +36,16 @@ func TestApplySuccessSavesSuccessStatus(t *testing.T) {
 	db := testutil.NewDB(t)
 	var calls []string
 	svc := &Service{
-		DB:    db,
-		Cfg:   testutil.NewConfig(t),
-		Nginx: &fakeApplier{name: "nginx", calls: &calls},
-		Xray:  &fakeApplier{name: "xray", calls: &calls},
+		DB:      db,
+		Cfg:     testutil.NewConfig(t),
+		Nginx:   &fakeApplier{name: "nginx", calls: &calls},
+		SingBox: &fakeApplier{name: "sing-box", calls: &calls},
 	}
 
 	if err := svc.Apply(context.Background()); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
-	if !reflect.DeepEqual(calls, []string{"xray.apply", "nginx.apply"}) {
+	if !reflect.DeepEqual(calls, []string{"sing-box.apply", "nginx.apply"}) {
 		t.Fatalf("unexpected apply order: %#v", calls)
 	}
 	var setting models.SystemSetting
@@ -58,12 +58,12 @@ func TestApplySuccessSavesSuccessStatus(t *testing.T) {
 func TestProcessControlsDelegateToRuntimeProcesses(t *testing.T) {
 	db := testutil.NewDB(t)
 	nginx := &fakeApplier{}
-	xray := &fakeApplier{}
+	singBox := &fakeApplier{}
 	svc := &Service{
-		DB:    db,
-		Cfg:   testutil.NewConfig(t),
-		Nginx: nginx,
-		Xray:  xray,
+		DB:      db,
+		Cfg:     testutil.NewConfig(t),
+		Nginx:   nginx,
+		SingBox: singBox,
 	}
 
 	if err := svc.StartNginx(context.Background()); err != nil {
@@ -75,34 +75,34 @@ func TestProcessControlsDelegateToRuntimeProcesses(t *testing.T) {
 	if err := svc.RestartNginx(context.Background()); err != nil {
 		t.Fatalf("restart nginx: %v", err)
 	}
-	if err := svc.StartXray(context.Background()); err != nil {
-		t.Fatalf("start xray: %v", err)
+	if err := svc.StartSingBox(context.Background()); err != nil {
+		t.Fatalf("start sing-box: %v", err)
 	}
-	if err := svc.StopXray(context.Background()); err != nil {
-		t.Fatalf("stop xray: %v", err)
+	if err := svc.StopSingBox(context.Background()); err != nil {
+		t.Fatalf("stop sing-box: %v", err)
 	}
-	if err := svc.RestartXray(context.Background()); err != nil {
-		t.Fatalf("restart xray: %v", err)
+	if err := svc.RestartSingBox(context.Background()); err != nil {
+		t.Fatalf("restart sing-box: %v", err)
 	}
 
 	if nginx.starts != 1 || nginx.stops != 1 || nginx.restarts != 1 {
 		t.Fatalf("unexpected nginx calls: %#v", nginx)
 	}
-	if xray.starts != 1 || xray.stops != 1 || xray.restarts != 1 {
-		t.Fatalf("unexpected xray calls: %#v", xray)
+	if singBox.starts != 1 || singBox.stops != 1 || singBox.restarts != 1 {
+		t.Fatalf("unexpected sing-box calls: %#v", singBox)
 	}
 }
 
-func TestXrayLogsReturnProcessDetails(t *testing.T) {
+func TestSingBoxLogsReturnProcessDetails(t *testing.T) {
 	svc := &Service{
-		Cfg:  testutil.NewConfig(t),
-		Xray: &fakeApplier{logs: []string{"stderr-detail", "process exited: signal: killed"}},
+		Cfg:     testutil.NewConfig(t),
+		SingBox: &fakeApplier{logs: []string{"stderr-detail", "process exited: signal: killed"}},
 	}
 
-	got := svc.XrayLogs()
+	got := svc.SingBoxLogs()
 	want := LogSummary{Logs: []string{"stderr-detail", "process exited: signal: killed"}}
 	if !reflect.DeepEqual(got, want) {
-		t.Fatalf("unexpected xray logs: got %#v want %#v", got, want)
+		t.Fatalf("unexpected sing-box logs: got %#v want %#v", got, want)
 	}
 }
 
@@ -126,7 +126,7 @@ func TestNginxConfigReadsRenderedConfig(t *testing.T) {
 	}
 }
 
-func TestStatusReportsNginxPublicPortsAndXrayLocalInbound(t *testing.T) {
+func TestStatusReportsNginxPublicPortsAndSingBoxLocalInbounds(t *testing.T) {
 	db := testutil.NewDB(t)
 	cfg := testutil.NewConfig(t)
 	domain := models.Domain{Domain: "proxy.example.com", Status: "enabled"}
@@ -136,18 +136,19 @@ func TestStatusReportsNginxPublicPortsAndXrayLocalInbound(t *testing.T) {
 	if err := db.Create(&models.ProxyInbound{
 		DomainID:   domain.ID,
 		Name:       "main",
-		Template:   "vless-xhttp",
+		Template:   "vless-reality-vision",
 		ListenAddr: "127.0.0.1",
 		ListenPort: 31001,
+		RouteSNI:   "apple.com",
 		Enabled:    true,
 	}).Error; err != nil {
 		t.Fatalf("create inbound: %v", err)
 	}
 	svc := &Service{
-		DB:    db,
-		Cfg:   cfg,
-		Nginx: &fakeApplier{},
-		Xray:  &fakeApplier{},
+		DB:      db,
+		Cfg:     cfg,
+		Nginx:   &fakeApplier{},
+		SingBox: &fakeApplier{},
 	}
 
 	status, err := svc.Status()
@@ -157,8 +158,8 @@ func TestStatusReportsNginxPublicPortsAndXrayLocalInbound(t *testing.T) {
 	if status.NginxPublicHTTPPort != 80 || status.NginxPublicHTTPSPort != 443 {
 		t.Fatalf("unexpected nginx public ports: %#v", status)
 	}
-	if status.XrayInboundListen != "127.0.0.1:31001" {
-		t.Fatalf("unexpected xray inbound listen: %#v", status)
+	if status.SingBoxInboundListen != "127.0.0.1:31001" {
+		t.Fatalf("unexpected sing-box inbound listen: %#v", status)
 	}
 }
 

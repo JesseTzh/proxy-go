@@ -1,13 +1,14 @@
 package runtimeconfig
 
 type Snapshot struct {
-	ManagementDomain string
-	PublicHTTPSPort  int
-	ManagedHTTPSAddr string
-	XrayDebugEnabled bool
-	LogDir           string
-	ReverseProxies   []ReverseProxy
-	ProxyInbounds    []ProxyInbound
+	ManagementDomain    string
+	PublicHTTPSPort     int
+	ManagedHTTPSAddr    string
+	CertDir             string
+	SingBoxDebugEnabled bool
+	LogDir              string
+	ReverseProxies      []ReverseProxy
+	ProxyInbounds       []ProxyInbound
 }
 
 type ReverseProxy struct {
@@ -32,8 +33,8 @@ type ProxyInbound struct {
 	Network                string
 	Security               string
 	Flow                   string
-	XHTTPPath              string
-	XHTTPMode              string
+	RouteSNI               string
+	Password               string
 	RealityPrivateKey      string
 	RealityPublicKey       string
 	RealityShortID         string

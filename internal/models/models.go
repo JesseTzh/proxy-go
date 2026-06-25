@@ -24,9 +24,9 @@ type SystemSetting struct {
 	ManagementDomain         string     `json:"managementDomain"`
 	ACMEEmail                string     `json:"acmeEmail"`
 	RuntimeConfigStatus      string     `json:"runtimeConfigStatus"`
-	XrayDebugEnabled         bool       `json:"xrayDebugEnabled"`
+	SingBoxDebugEnabled      bool       `json:"singBoxDebugEnabled"`
 	LastNginxReloadAt        *time.Time `json:"lastNginxReloadAt"`
-	LastXrayRestartAt        *time.Time `json:"lastXrayRestartAt"`
+	LastSingBoxRestartAt     *time.Time `json:"lastSingBoxRestartAt"`
 	LastCertificateRenewalAt *time.Time `json:"lastCertificateRenewalAt"`
 	CreatedAt                time.Time  `json:"createdAt"`
 	UpdatedAt                time.Time  `json:"updatedAt"`
@@ -96,8 +96,8 @@ type ProxyInbound struct {
 	Network                string    `json:"network"`
 	Security               string    `json:"security"`
 	Flow                   string    `json:"flow"`
-	XHTTPPath              string    `json:"xhttpPath"`
-	XHTTPMode              string    `json:"xhttpMode"`
+	RouteSNI               string    `gorm:"index" json:"routeSni"`
+	Password               string    `json:"-"`
 	RealityHandshakeServer string    `json:"realityHandshakeServer"`
 	RealityHandshakePort   int       `json:"realityHandshakePort"`
 	RealityPrivateKey      string    `json:"-"`

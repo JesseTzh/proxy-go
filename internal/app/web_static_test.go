@@ -20,7 +20,7 @@ func TestAttachWebServesPublicSvgBeforeSPAFallback(t *testing.T) {
 	if err := os.MkdirAll(svgDir, 0755); err != nil {
 		t.Fatalf("mkdir svg: %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(svgDir, "xray.svg"), []byte(`<svg xmlns="http://www.w3.org/2000/svg"></svg>`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(svgDir, "sing-box.svg"), []byte(`<svg xmlns="http://www.w3.org/2000/svg"></svg>`), 0644); err != nil {
 		t.Fatalf("write svg: %v", err)
 	}
 
@@ -29,7 +29,7 @@ func TestAttachWebServesPublicSvgBeforeSPAFallback(t *testing.T) {
 	attachWeb(router, webRoot)
 
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/svg/xray.svg", nil)
+	request := httptest.NewRequest(http.MethodGet, "/svg/sing-box.svg", nil)
 	router.ServeHTTP(response, request)
 
 	if response.Code != http.StatusOK {

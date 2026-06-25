@@ -19,7 +19,7 @@ func TestStartDoesNotStartChildrenWhenHTTPListenFails(t *testing.T) {
 
 	logPath := filepath.Join(t.TempDir(), "children.log")
 	cfg.Runtime.NginxBinary = fakeRuntimeBinary(t, logPath)
-	cfg.Runtime.XrayBinary = cfg.Runtime.NginxBinary
+	cfg.Runtime.SingBoxBinary = cfg.Runtime.NginxBinary
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

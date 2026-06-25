@@ -1,4 +1,4 @@
-package xray
+package singbox
 
 import (
 	"context"
@@ -15,12 +15,14 @@ type Credentials struct {
 	RealityPrivateKey string
 	RealityPublicKey  string
 	RealityShortID    string
+	Password          string
 }
 
 type CredentialGenerator interface {
 	UUID(ctx context.Context) (string, error)
 	RealityKeyPair(ctx context.Context) (privateKey string, publicKey string, err error)
 	ShortID() (string, error)
+	Password() (string, error)
 }
 
 type CLICredentialGenerator struct {
@@ -32,7 +34,7 @@ type StaticCredentialGenerator struct {
 }
 
 func (g CLICredentialGenerator) UUID(ctx context.Context) (string, error) {
-	out, err := exec.CommandContext(ctx, g.Binary, "uuid").Output()
+	out, err := exec.CommandContext(ctx, g.Binary, "generate", "uuid").Output()
 	if err != nil {
 		return uuid.NewString(), nil
 	}
@@ -40,11 +42,11 @@ func (g CLICredentialGenerator) UUID(ctx context.Context) (string, error) {
 }
 
 func (g CLICredentialGenerator) RealityKeyPair(ctx context.Context) (string, string, error) {
-	out, err := exec.CommandContext(ctx, g.Binary, "x25519").CombinedOutput()
+	out, err := exec.CommandContext(ctx, g.Binary, "generate", "reality-keypair").CombinedOutput()
 	if err != nil {
-		return "", "", fmt.Errorf("xray x25519: %w: %s", err, strings.TrimSpace(string(out)))
+		return "", "", fmt.Errorf("sing-box generate reality-keypair: %w: %s", err, strings.TrimSpace(string(out)))
 	}
-	privateKey, publicKey, err := ParseX25519Output(string(out))
+	privateKey, publicKey, err := ParseRealityKeyPairOutput(string(out))
 	if err != nil {
 		return "", "", err
 	}
@@ -53,6 +55,10 @@ func (g CLICredentialGenerator) RealityKeyPair(ctx context.Context) (string, str
 
 func (g CLICredentialGenerator) ShortID() (string, error) {
 	return security.RandomHex(4)
+}
+
+func (g CLICredentialGenerator) Password() (string, error) {
+	return security.RandomHex(16)
 }
 
 func (g StaticCredentialGenerator) UUID(context.Context) (string, error) {
@@ -67,21 +73,33 @@ func (g StaticCredentialGenerator) ShortID() (string, error) {
 	return g.Credentials.RealityShortID, nil
 }
 
-func ParseX25519Output(output string) (privateKey string, publicKey string, err error) {
+func (g StaticCredentialGenerator) Password() (string, error) {
+	return g.Credentials.Password, nil
+}
+
+func ParseRealityKeyPairOutput(output string) (privateKey string, publicKey string, err error) {
 	for _, line := range strings.Split(output, "\n") {
 		key, value, ok := strings.Cut(line, ":")
 		if !ok {
 			continue
 		}
-		switch strings.TrimSpace(strings.ToLower(key)) {
-		case "private key":
+		switch normalizeKeyLabel(key) {
+		case "privatekey", "private":
 			privateKey = strings.TrimSpace(value)
-		case "public key":
+		case "publickey", "public":
 			publicKey = strings.TrimSpace(value)
 		}
 	}
 	if privateKey == "" || publicKey == "" {
-		return "", "", fmt.Errorf("xray x25519 output missing private or public key")
+		return "", "", fmt.Errorf("sing-box reality-keypair output missing private or public key")
 	}
 	return privateKey, publicKey, nil
+}
+
+func normalizeKeyLabel(label string) string {
+	label = strings.ToLower(strings.TrimSpace(label))
+	label = strings.ReplaceAll(label, " ", "")
+	label = strings.ReplaceAll(label, "_", "")
+	label = strings.ReplaceAll(label, "-", "")
+	return label
 }

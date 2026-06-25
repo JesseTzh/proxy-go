@@ -13,7 +13,7 @@ const expectations = [
   ['dashboard-metric-reverse-proxies', 'reverse proxy metric card'],
   ['dashboard-metric-inbounds', 'proxy entry metric card'],
   ['/svg/nginx.svg', 'nginx process svg asset'],
-  ['/svg/xray.svg', 'xray process svg asset'],
+  ['/svg/sing-box.svg', 'sing-box process svg asset'],
   ['`${dataTestId}-icon`', 'dynamic metric icon test id'],
   ['`${dataTestId}-listen`', 'dynamic process listen row test id'],
   ['grid-cols-[auto_minmax(0,1fr)_auto]', 'compact metric card with right-aligned value'],

@@ -38,7 +38,7 @@ func Settings(d Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var s models.SystemSetting
 		d.DB.First(&s, 1)
-		response.JSON(c, 200, gin.H{"settings": s, "paths": d.Cfg.Paths, "versions": gin.H{"proxyGo": "dev", "nginx": d.Nginx.Binary, "xray": d.Xray.Binary}})
+		response.JSON(c, 200, gin.H{"settings": s, "paths": d.Cfg.Paths, "versions": gin.H{"proxyGo": "dev", "nginx": d.Nginx.Binary, "singBox": d.SingBox.Binary}})
 	}
 }
 

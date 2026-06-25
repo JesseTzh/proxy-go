@@ -15,6 +15,7 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 	if cfg != nil {
 		snapshot.PublicHTTPSPort = cfg.Server.PublicHTTPSPort
 		snapshot.ManagedHTTPSAddr = cfg.Server.ManagedHTTPSAddr
+		snapshot.CertDir = cfg.Paths.CertDir
 		snapshot.LogDir = cfg.Paths.LogDir
 	}
 	var setting models.SystemSetting
@@ -22,7 +23,7 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 		return snapshot, err
 	}
 	snapshot.ManagementDomain = setting.ManagementDomain
-	snapshot.XrayDebugEnabled = setting.XrayDebugEnabled
+	snapshot.SingBoxDebugEnabled = setting.SingBoxDebugEnabled
 
 	var rules []models.ReverseProxyRule
 	if err := db.Preload("Domain").Where("enabled = ?", true).Find(&rules).Error; err != nil {
@@ -59,8 +60,8 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 			Network:                inbound.Network,
 			Security:               inbound.Security,
 			Flow:                   inbound.Flow,
-			XHTTPPath:              inbound.XHTTPPath,
-			XHTTPMode:              inbound.XHTTPMode,
+			RouteSNI:               inbound.RouteSNI,
+			Password:               inbound.Password,
 			RealityPrivateKey:      inbound.RealityPrivateKey,
 			RealityPublicKey:       inbound.RealityPublicKey,
 			RealityShortID:         inbound.RealityShortID,

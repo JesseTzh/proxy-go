@@ -30,7 +30,7 @@ import (
 	"github.com/proxy-go/proxy-go/internal/models"
 	"github.com/proxy-go/proxy-go/internal/nginx"
 	"github.com/proxy-go/proxy-go/internal/security"
-	"github.com/proxy-go/proxy-go/internal/xray"
+	"github.com/proxy-go/proxy-go/internal/singbox"
 	"github.com/robfig/cron/v3"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"gorm.io/gorm"
@@ -42,7 +42,7 @@ type Application struct {
 	httpInitial  *http.Server
 	httpInternal *http.Server
 	nginx        *nginx.Service
-	xray         *xray.Service
+	singBox      *singbox.Service
 	cron         *cron.Cron
 }
 
@@ -60,7 +60,7 @@ func New(cfg *config.Config) (*Application, error) {
 		"publicHTTPPort", cfg.Server.PublicHTTPPort,
 		"publicHTTPSPort", cfg.Server.PublicHTTPSPort,
 	)
-	for _, dir := range []string{cfg.Paths.DataDir, cfg.Paths.LogDir, cfg.Paths.BinDir, cfg.Paths.CertDir, cfg.Paths.NginxConfDir, cfg.Paths.XrayConfDir} {
+	for _, dir := range []string{cfg.Paths.DataDir, cfg.Paths.LogDir, cfg.Paths.BinDir, cfg.Paths.CertDir, cfg.Paths.NginxConfDir, cfg.Paths.SingBoxConfDir} {
 		stepStarted := time.Now()
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return nil, err
@@ -84,17 +84,17 @@ func New(cfg *config.Config) (*Application, error) {
 	}
 	slog.Info("startup default certificate ready", "elapsed", time.Since(stepStarted).String())
 	ng := nginx.New(cfg, db, cfg.Runtime.NginxBinary)
-	xr := xray.New(cfg, db, cfg.Runtime.XrayBinary)
+	sb := singbox.New(cfg, db, cfg.Runtime.SingBoxBinary)
 	aud := audit.New(db)
 	ac := acme.NewWithConfig(db, cfg)
-	deps := api.Deps{Cfg: cfg, DB: db, Audit: aud, ACME: ac, Nginx: ng, Xray: xr, Limiter: security.NewLoginLimiter(), Validator: validator.New()}
+	deps := api.Deps{Cfg: cfg, DB: db, Audit: aud, ACME: ac, Nginx: ng, SingBox: sb, Limiter: security.NewLoginLimiter(), Validator: validator.New()}
 	gin.SetMode(gin.ReleaseMode)
 	r := api.Router(deps)
 	webRoot := resolveWebRoot(cfg.Paths.WebRoot)
 	attachWeb(r, webRoot)
 	internal := api.Router(deps)
 	attachWeb(internal, webRoot)
-	app := &Application{cfg: cfg, db: db, nginx: ng, xray: xr, httpInitial: &http.Server{Addr: cfg.Server.InitialAddr, Handler: r}, httpInternal: &http.Server{Addr: cfg.Server.InternalAddr, Handler: internal}, cron: cron.New()}
+	app := &Application{cfg: cfg, db: db, nginx: ng, singBox: sb, httpInitial: &http.Server{Addr: cfg.Server.InitialAddr, Handler: r}, httpInternal: &http.Server{Addr: cfg.Server.InternalAddr, Handler: internal}, cron: cron.New()}
 	app.registerCron(ac)
 	slog.Info("application init completed", "elapsed", time.Since(started).String())
 	return app, nil
@@ -210,10 +210,10 @@ func (a *Application) startManagedChildren(ctx context.Context) {
 		slog.Info("nginx process start requested", "elapsed", time.Since(stepStarted).String())
 	}
 	stepStarted = time.Now()
-	if err := a.xray.Start(ctx); err != nil {
-		slog.Warn("start xray failed", "error", err)
+	if err := a.singBox.Start(ctx); err != nil {
+		slog.Warn("start sing-box failed", "error", err)
 	} else {
-		slog.Info("xray process start requested", "elapsed", time.Since(stepStarted).String())
+		slog.Info("sing-box process start requested", "elapsed", time.Since(stepStarted).String())
 	}
 }
 
@@ -231,7 +231,7 @@ func (a *Application) Shutdown(ctx context.Context) error {
 	_ = a.httpInitial.Shutdown(ctx2)
 	_ = a.httpInternal.Shutdown(ctx2)
 	_ = a.nginx.Proc.Stop(ctx2)
-	_ = a.xray.Proc.Stop(ctx2)
+	_ = a.singBox.Proc.Stop(ctx2)
 	return nil
 }
 

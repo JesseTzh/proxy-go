@@ -10,7 +10,7 @@ import (
 	"github.com/proxy-go/proxy-go/internal/config"
 	"github.com/proxy-go/proxy-go/internal/nginx"
 	"github.com/proxy-go/proxy-go/internal/security"
-	"github.com/proxy-go/proxy-go/internal/xray"
+	"github.com/proxy-go/proxy-go/internal/singbox"
 	"gorm.io/gorm"
 )
 
@@ -20,7 +20,7 @@ type Deps struct {
 	Audit     *audit.Logger
 	ACME      *acme.Service
 	Nginx     *nginx.Service
-	Xray      *xray.Service
+	SingBox   *singbox.Service
 	Limiter   *security.LoginLimiter
 	Validator *validator.Validate
 }

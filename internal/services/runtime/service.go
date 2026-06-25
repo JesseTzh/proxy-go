@@ -22,7 +22,7 @@ type NginxApplier interface {
 	Status() any
 }
 
-type XrayApplier interface {
+type SingBoxApplier interface {
 	Apply(context.Context) error
 	Start(context.Context) error
 	Stop(context.Context) error
@@ -32,29 +32,29 @@ type XrayApplier interface {
 }
 
 type Service struct {
-	DB    *gorm.DB
-	Cfg   *config.Config
-	Nginx NginxApplier
-	Xray  XrayApplier
+	DB      *gorm.DB
+	Cfg     *config.Config
+	Nginx   NginxApplier
+	SingBox SingBoxApplier
 }
 
 type Status struct {
 	ProxyGo                  any        `json:"proxyGo"`
 	Nginx                    any        `json:"nginx"`
-	Xray                     any        `json:"xray"`
+	SingBox                  any        `json:"singBox"`
 	GoInternalAddr           string     `json:"goInternalAddr"`
 	NginxPublicHTTPPort      int        `json:"nginxPublicHttpPort"`
 	NginxPublicHTTPSPort     int        `json:"nginxPublicHttpsPort"`
 	NginxManagedHTTPSAddr    string     `json:"nginxManagedHttpsAddr"`
-	XrayInboundListen        string     `json:"xrayInboundListen"`
-	XrayDebugEnabled         bool       `json:"xrayDebugEnabled"`
+	SingBoxInboundListen     string     `json:"singBoxInboundListen"`
+	SingBoxDebugEnabled      bool       `json:"singBoxDebugEnabled"`
 	DomainCount              int64      `json:"domainCount"`
 	CertificateCount         int64      `json:"certificateCount"`
 	ReverseProxyCount        int64      `json:"reverseProxyCount"`
 	InboundCount             int64      `json:"inboundCount"`
 	ExpiringCertificateCount int64      `json:"expiringCertificateCount"`
 	LastNginxReloadAt        *time.Time `json:"lastNginxReloadAt"`
-	LastXrayRestartAt        *time.Time `json:"lastXrayRestartAt"`
+	LastSingBoxRestartAt     *time.Time `json:"lastSingBoxRestartAt"`
 	LastCertificateRenewalAt *time.Time `json:"lastCertificateRenewalAt"`
 }
 
@@ -71,7 +71,7 @@ func (s *Service) Status() (Status, error) {
 	var status Status
 	status.ProxyGo = map[string]any{"running": true}
 	status.Nginx = s.Nginx.Status()
-	status.Xray = s.Xray.Status()
+	status.SingBox = s.SingBox.Status()
 	status.GoInternalAddr = s.Cfg.Server.InternalAddr
 	status.NginxPublicHTTPPort = s.Cfg.Server.PublicHTTPPort
 	status.NginxPublicHTTPSPort = s.Cfg.Server.PublicHTTPSPort
@@ -90,7 +90,7 @@ func (s *Service) Status() (Status, error) {
 	}
 	var inbound models.ProxyInbound
 	if err := s.DB.Where("enabled = ?", true).Order("id asc").First(&inbound).Error; err == nil {
-		status.XrayInboundListen = fmt.Sprintf("%s:%d", inbound.ListenAddr, inbound.ListenPort)
+		status.SingBoxInboundListen = fmt.Sprintf("%s:%d", inbound.ListenAddr, inbound.ListenPort)
 	}
 	if err := s.DB.Model(&models.Certificate{}).Where("expires_at <= ?", time.Now().Add(30*24*time.Hour)).Count(&status.ExpiringCertificateCount).Error; err != nil {
 		return status, err
@@ -100,14 +100,14 @@ func (s *Service) Status() (Status, error) {
 		return status, err
 	}
 	status.LastNginxReloadAt = setting.LastNginxReloadAt
-	status.LastXrayRestartAt = setting.LastXrayRestartAt
+	status.LastSingBoxRestartAt = setting.LastSingBoxRestartAt
 	status.LastCertificateRenewalAt = setting.LastCertificateRenewalAt
-	status.XrayDebugEnabled = setting.XrayDebugEnabled
+	status.SingBoxDebugEnabled = setting.SingBoxDebugEnabled
 	return status, nil
 }
 
 func (s *Service) Apply(ctx context.Context) error {
-	if err := s.Xray.Apply(ctx); err != nil {
+	if err := s.SingBox.Apply(ctx); err != nil {
 		s.saveApply("failed")
 		return err
 	}
@@ -143,31 +143,31 @@ func (s *Service) RestartNginx(ctx context.Context) error {
 	return s.DB.Model(&models.SystemSetting{}).Where("id=1").Update("last_nginx_reload_at", &now).Error
 }
 
-func (s *Service) StartXray(ctx context.Context) error {
-	return s.Xray.Start(ctx)
+func (s *Service) StartSingBox(ctx context.Context) error {
+	return s.SingBox.Start(ctx)
 }
 
-func (s *Service) StopXray(ctx context.Context) error {
-	return s.Xray.Stop(ctx)
+func (s *Service) StopSingBox(ctx context.Context) error {
+	return s.SingBox.Stop(ctx)
 }
 
-func (s *Service) RestartXray(ctx context.Context) error {
-	if err := s.Xray.Restart(ctx); err != nil {
+func (s *Service) RestartSingBox(ctx context.Context) error {
+	if err := s.SingBox.Restart(ctx); err != nil {
 		return err
 	}
 	now := time.Now()
-	return s.DB.Model(&models.SystemSetting{}).Where("id=1").Update("last_xray_restart_at", &now).Error
+	return s.DB.Model(&models.SystemSetting{}).Where("id=1").Update("last_sing_box_restart_at", &now).Error
 }
 
-func (s *Service) SetXrayDebug(ctx context.Context, enabled bool) error {
-	if err := s.DB.Model(&models.SystemSetting{}).Where("id=1").Update("xray_debug_enabled", enabled).Error; err != nil {
+func (s *Service) SetSingBoxDebug(ctx context.Context, enabled bool) error {
+	if err := s.DB.Model(&models.SystemSetting{}).Where("id=1").Update("sing_box_debug_enabled", enabled).Error; err != nil {
 		return err
 	}
-	if err := s.Xray.Apply(ctx); err != nil {
+	if err := s.SingBox.Apply(ctx); err != nil {
 		return err
 	}
 	now := time.Now()
-	return s.DB.Model(&models.SystemSetting{}).Where("id=1").Update("last_xray_restart_at", &now).Error
+	return s.DB.Model(&models.SystemSetting{}).Where("id=1").Update("last_sing_box_restart_at", &now).Error
 }
 
 func (s *Service) Logs() LogSummary {
@@ -183,10 +183,10 @@ func (s *Service) NginxConfig() (ConfigSnapshot, error) {
 	return ConfigSnapshot{Path: path, Content: string(content)}, nil
 }
 
-func (s *Service) XrayLogs() LogSummary {
-	logs := append([]string{}, s.Xray.Logs()...)
-	logs = appendLogFile(logs, "xray-error.log", filepath.Join(s.Cfg.Paths.LogDir, "xray-error.log"))
-	logs = appendLogFile(logs, "xray-access.log", filepath.Join(s.Cfg.Paths.LogDir, "xray-access.log"))
+func (s *Service) SingBoxLogs() LogSummary {
+	logs := append([]string{}, s.SingBox.Logs()...)
+	logs = appendLogFile(logs, "sing-box-error.log", filepath.Join(s.Cfg.Paths.LogDir, "sing-box-error.log"))
+	logs = appendLogFile(logs, "sing-box-access.log", filepath.Join(s.Cfg.Paths.LogDir, "sing-box-access.log"))
 	return LogSummary{Logs: logs}
 }
 

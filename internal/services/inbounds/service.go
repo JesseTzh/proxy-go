@@ -12,14 +12,14 @@ import (
 	"github.com/proxy-go/proxy-go/internal/config"
 	"github.com/proxy-go/proxy-go/internal/models"
 	"github.com/proxy-go/proxy-go/internal/runtimeconfig"
-	"github.com/proxy-go/proxy-go/internal/xray"
+	"github.com/proxy-go/proxy-go/internal/singbox"
 	"gorm.io/gorm"
 )
 
 type Service struct {
 	db        *gorm.DB
 	cfg       *config.Config
-	generator xray.CredentialGenerator
+	generator singbox.CredentialGenerator
 }
 
 const (
@@ -28,9 +28,9 @@ const (
 )
 
 type CreateRequest struct {
+	Template               string `json:"template"`
 	Name                   string `json:"name"`
 	DomainID               uint   `json:"domainId"`
-	XHTTPPath              string `json:"xhttpPath"`
 	RealityHandshakeServer string `json:"realityHandshakeServer"`
 }
 
@@ -40,19 +40,22 @@ type ShareDetails struct {
 	URI    string `json:"uri"`
 }
 
-func New(db *gorm.DB, cfg *config.Config, generator xray.CredentialGenerator) *Service {
+func New(db *gorm.DB, cfg *config.Config, generator singbox.CredentialGenerator) *Service {
 	return &Service{db: db, cfg: cfg, generator: generator}
 }
 
 func (s *Service) Create(ctx context.Context, req CreateRequest) (models.ProxyInbound, error) {
 	item := models.ProxyInbound{
+		Template:               req.Template,
 		Name:                   req.Name,
 		DomainID:               req.DomainID,
-		XHTTPPath:              req.XHTTPPath,
 		RealityHandshakeServer: req.RealityHandshakeServer,
 		Enabled:                true,
 	}
-	if err := applyDefaults(&item); err != nil {
+	if err := s.applyDefaults(&item); err != nil {
+		return item, err
+	}
+	if err := s.assignListenPort(&item); err != nil {
 		return item, err
 	}
 	if err := s.populateCredentials(ctx, &item); err != nil {
@@ -64,7 +67,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (models.ProxyIn
 	if err := s.validateStreamSNI(&item); err != nil {
 		return item, err
 	}
-	if err := s.validatePublicRealityUniqueness(&item); err != nil {
+	if err := s.validateRouteSNIUniqueness(&item); err != nil {
 		return item, err
 	}
 	if err := s.db.Create(&item).Error; err != nil {
@@ -79,17 +82,17 @@ func (s *Service) Update(ctx context.Context, id uint, req CreateRequest) (model
 	if err != nil {
 		return item, err
 	}
+	item.Template = req.Template
 	item.Name = req.Name
 	item.DomainID = req.DomainID
-	item.XHTTPPath = req.XHTTPPath
+	item.Domain = models.Domain{}
+	item.RouteSNI = ""
 	item.RealityHandshakeServer = req.RealityHandshakeServer
-	if err := applyDefaults(&item); err != nil {
+	if err := s.applyDefaults(&item); err != nil {
 		return item, err
 	}
-	if item.UUID == "" || item.RealityPrivateKey == "" || item.RealityPublicKey == "" || item.RealityShortID == "" {
-		if err := s.populateCredentials(ctx, &item); err != nil {
-			return item, err
-		}
+	if err := s.populateMissingCredentials(ctx, &item); err != nil {
+		return item, err
 	}
 	if err := validate(&item); err != nil {
 		return item, err
@@ -97,7 +100,7 @@ func (s *Service) Update(ctx context.Context, id uint, req CreateRequest) (model
 	if err := s.validateStreamSNI(&item); err != nil {
 		return item, err
 	}
-	if err := s.validatePublicRealityUniqueness(&item); err != nil {
+	if err := s.validateRouteSNIUniqueness(&item); err != nil {
 		return item, err
 	}
 	if err := s.db.Save(&item).Error; err != nil {
@@ -107,12 +110,154 @@ func (s *Service) Update(ctx context.Context, id uint, req CreateRequest) (model
 	return item, nil
 }
 
-func (s *Service) Delete(id uint) error {
-	return s.db.Delete(&models.ProxyInbound{}, id).Error
+func (s *Service) populateMissingCredentials(ctx context.Context, item *models.ProxyInbound) error {
+	switch item.Template {
+	case "vless-reality-vision":
+		if item.UUID == "" || item.RealityPrivateKey == "" || item.RealityPublicKey == "" || item.RealityShortID == "" {
+			return s.populateCredentials(ctx, item)
+		}
+	case "anytls":
+		if item.Password == "" {
+			password, err := s.generator.Password()
+			if err != nil {
+				return err
+			}
+			item.Password = password
+		}
+	}
+	return nil
 }
 
 func (s *Service) SetEnabled(id uint, enabled bool) error {
-	return s.db.Model(&models.ProxyInbound{}).Where("id = ?", id).Update("enabled", enabled).Error
+	if !enabled {
+		return s.db.Model(&models.ProxyInbound{}).Where("id = ?", id).Update("enabled", false).Error
+	}
+	item, err := s.Get(id)
+	if err != nil {
+		return err
+	}
+	item.Enabled = true
+	if err := s.applyDefaults(&item); err != nil {
+		return err
+	}
+	if err := validate(&item); err != nil {
+		return err
+	}
+	if err := s.validateStreamSNI(&item); err != nil {
+		return err
+	}
+	if err := s.validateRouteSNIUniqueness(&item); err != nil {
+		return err
+	}
+	return s.db.Model(&models.ProxyInbound{}).Where("id = ?", id).Updates(map[string]any{
+		"enabled":   true,
+		"route_sni": item.RouteSNI,
+	}).Error
+}
+
+func (s *Service) populateCredentials(ctx context.Context, item *models.ProxyInbound) error {
+	switch item.Template {
+	case "vless-reality-vision":
+		id, err := s.generator.UUID(ctx)
+		if err != nil {
+			return err
+		}
+		privateKey, publicKey, err := s.generator.RealityKeyPair(ctx)
+		if err != nil {
+			return err
+		}
+		shortID, err := s.generator.ShortID()
+		if err != nil {
+			return err
+		}
+		item.UUID = id
+		item.RealityPrivateKey = privateKey
+		item.RealityPublicKey = publicKey
+		item.RealityShortID = shortID
+	case "anytls":
+		password, err := s.generator.Password()
+		if err != nil {
+			return err
+		}
+		item.Password = password
+	}
+	return nil
+}
+
+func (s *Service) assignListenPort(item *models.ProxyInbound) error {
+	if item.ListenPort != 0 {
+		return nil
+	}
+	var maxPort int
+	row := s.db.Model(&models.ProxyInbound{}).Select("COALESCE(MAX(listen_port), ?)", defaultListenPort-1).Row()
+	if err := row.Scan(&maxPort); err != nil {
+		return err
+	}
+	item.ListenPort = maxPort + 1
+	if item.ListenPort < defaultListenPort {
+		item.ListenPort = defaultListenPort
+	}
+	return nil
+}
+
+func (s *Service) domainName(id uint) (string, error) {
+	var domain models.Domain
+	if err := s.db.First(&domain, id).Error; err != nil {
+		return "", err
+	}
+	return normalizeDNSName(domain.Domain), nil
+}
+
+func (s *Service) applyDefaults(item *models.ProxyInbound) error {
+	if item.Template == "" {
+		item.Template = "vless-reality-vision"
+	}
+	if item.ListenAddr == "" {
+		item.ListenAddr = defaultListenAddr
+	}
+	item.Network = "tcp"
+	switch item.Template {
+	case "vless-reality-vision":
+		if item.Name == "" {
+			item.Name = "VLESS Reality Vision"
+		}
+		item.Protocol = "vless"
+		item.Security = "reality"
+		item.Flow = "xtls-rprx-vision"
+		if item.RealityMaxTimeDiff == 0 {
+			item.RealityMaxTimeDiff = 60000
+		}
+		if item.RealityHandshakePort == 0 {
+			item.RealityHandshakePort = 443
+		}
+		item.RealityHandshakeServer = normalizeDNSName(item.RealityHandshakeServer)
+		item.RouteSNI = item.RealityHandshakeServer
+	case "anytls":
+		if item.Name == "" {
+			item.Name = "AnyTLS"
+		}
+		item.Protocol = "anytls"
+		item.Security = "tls"
+		item.Flow = ""
+		item.RealityHandshakeServer = ""
+		item.RealityHandshakePort = 0
+		item.RealityMaxTimeDiff = 0
+		if item.RouteSNI == "" {
+			domain, err := s.domainName(item.DomainID)
+			if err != nil {
+				return err
+			}
+			item.RouteSNI = domain
+		}
+		item.RouteSNI = normalizeDNSName(item.RouteSNI)
+	default:
+		return fmt.Errorf("unsupported inbound template %q", item.Template)
+	}
+	return nil
+}
+
+func (s *Service) Delete(id uint) error {
+	return s.db.Delete(&models.ProxyInbound{}, id).Error
 }
 
 func (s *Service) List() ([]models.ProxyInbound, error) {
@@ -130,7 +275,7 @@ func (s *Service) ConfigDetails(id uint) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return xray.RenderInbound(s.toRuntimeInbound(item))
+	return singbox.RenderInbound(s.toRuntimeInbound(item), s.cfg.Paths.CertDir)
 }
 
 func (s *Service) ShareDetails(id uint) (ShareDetails, error) {
@@ -149,58 +294,6 @@ func (s *Service) ShareDetails(id uint) (ShareDetails, error) {
 	}, nil
 }
 
-func (s *Service) populateCredentials(ctx context.Context, item *models.ProxyInbound) error {
-	id, err := s.generator.UUID(ctx)
-	if err != nil {
-		return err
-	}
-	privateKey, publicKey, err := s.generator.RealityKeyPair(ctx)
-	if err != nil {
-		return err
-	}
-	shortID, err := s.generator.ShortID()
-	if err != nil {
-		return err
-	}
-	item.UUID = id
-	item.RealityPrivateKey = privateKey
-	item.RealityPublicKey = publicKey
-	item.RealityShortID = shortID
-	return nil
-}
-
-func applyDefaults(item *models.ProxyInbound) error {
-	if item.Template == "" {
-		item.Template = "vless-xhttp"
-	}
-	if item.Template != "vless-xhttp" {
-		return fmt.Errorf("only vless-xhttp is supported")
-	}
-	if item.Name == "" {
-		item.Name = "VLESS XHTTP Reality"
-	}
-	item.Protocol = "vless"
-	item.ListenAddr = defaultListenAddr
-	item.ListenPort = defaultListenPort
-	if item.RealityMaxTimeDiff == 0 {
-		item.RealityMaxTimeDiff = 60000
-	}
-	if item.RealityHandshakePort == 0 {
-		item.RealityHandshakePort = 443
-	}
-	item.Network = "xhttp"
-	item.Security = "reality"
-	item.Flow = ""
-	if item.XHTTPPath == "" {
-		item.XHTTPPath = "/xhttp"
-	}
-	if item.XHTTPMode == "" {
-		item.XHTTPMode = "auto"
-	}
-	item.RealityHandshakeServer = normalizeDNSName(item.RealityHandshakeServer)
-	return nil
-}
-
 func validate(item *models.ProxyInbound) error {
 	if item.DomainID == 0 {
 		return errors.New("domainId required")
@@ -208,8 +301,8 @@ func validate(item *models.ProxyInbound) error {
 	if item.ListenAddr != defaultListenAddr {
 		return fmt.Errorf("listenAddr must be %s", defaultListenAddr)
 	}
-	if item.ListenPort != defaultListenPort {
-		return fmt.Errorf("listenPort must be %d", defaultListenPort)
+	if item.ListenPort < defaultListenPort {
+		return fmt.Errorf("listenPort must be >= %d", defaultListenPort)
 	}
 	if item.Security == "reality" && item.RealityHandshakeServer == "" {
 		return errors.New("realityHandshakeServer required")
@@ -219,6 +312,15 @@ func validate(item *models.ProxyInbound) error {
 	}
 	if item.Security == "reality" && item.RealityHandshakePort != 443 {
 		return errors.New("realityHandshakePort must be 443")
+	}
+	if item.RouteSNI == "" {
+		return errors.New("routeSni required")
+	}
+	if !isDNSName(item.RouteSNI) {
+		return errors.New("routeSni must be a valid domain name")
+	}
+	if item.Template == "anytls" && item.Password == "" {
+		return errors.New("anytls password required")
 	}
 	return nil
 }
@@ -269,13 +371,14 @@ func (s *Service) validateStreamSNI(item *models.ProxyInbound) error {
 	return nil
 }
 
-func (s *Service) validatePublicRealityUniqueness(item *models.ProxyInbound) error {
-	if item.Template != "vless-xhttp" || !item.Enabled {
+func (s *Service) validateRouteSNIUniqueness(item *models.ProxyInbound) error {
+	if !item.Enabled || item.RouteSNI == "" {
 		return nil
 	}
 	var count int64
+	routeSNI := normalizeDNSName(item.RouteSNI)
 	query := s.db.Model(&models.ProxyInbound{}).
-		Where("template = ? AND enabled = ?", "vless-xhttp", true)
+		Where("lower(route_sni) = ? AND enabled = ?", routeSNI, true)
 	if item.ID != 0 {
 		query = query.Where("id <> ?", item.ID)
 	}
@@ -283,7 +386,7 @@ func (s *Service) validatePublicRealityUniqueness(item *models.ProxyInbound) err
 		return err
 	}
 	if count > 0 {
-		return errors.New("only one enabled vless-xhttp inbound can use public https port")
+		return errors.New("routeSni must be unique among enabled inbounds")
 	}
 	return nil
 }
@@ -301,8 +404,8 @@ func (s *Service) toRuntimeInbound(item models.ProxyInbound) runtimeconfig.Proxy
 		Network:                item.Network,
 		Security:               item.Security,
 		Flow:                   item.Flow,
-		XHTTPPath:              item.XHTTPPath,
-		XHTTPMode:              item.XHTTPMode,
+		RouteSNI:               item.RouteSNI,
+		Password:               item.Password,
 		RealityPrivateKey:      item.RealityPrivateKey,
 		RealityPublicKey:       item.RealityPublicKey,
 		RealityShortID:         item.RealityShortID,
@@ -313,16 +416,26 @@ func (s *Service) toRuntimeInbound(item models.ProxyInbound) runtimeconfig.Proxy
 }
 
 func shareURI(item models.ProxyInbound) (string, error) {
-	if item.UUID == "" {
-		return "", errors.New("inbound uuid missing")
-	}
 	if item.Domain.Domain == "" {
 		return "", errors.New("inbound domain missing")
 	}
-	if item.Security == "reality" && (item.RealityPublicKey == "" || item.RealityShortID == "") {
+	switch item.Template {
+	case "vless-reality-vision":
+		return shareVLESSRealityVisionURI(item)
+	case "anytls":
+		return shareAnyTLSURI(item)
+	default:
+		return "", fmt.Errorf("unsupported inbound template %q", item.Template)
+	}
+}
+
+func shareVLESSRealityVisionURI(item models.ProxyInbound) (string, error) {
+	if item.UUID == "" {
+		return "", errors.New("inbound uuid missing")
+	}
+	if item.RealityPublicKey == "" || item.RealityShortID == "" {
 		return "", errors.New("inbound reality credentials missing")
 	}
-
 	query := url.Values{}
 	query.Set("encryption", "none")
 	query.Set("security", item.Security)
@@ -336,15 +449,25 @@ func shareURI(item models.ProxyInbound) (string, error) {
 	if item.Flow != "" {
 		query.Set("flow", item.Flow)
 	}
-	if item.Template == "vless-xhttp" {
-		query.Set("path", item.XHTTPPath)
-		query.Set("mode", item.XHTTPMode)
-		query.Set("host", item.Domain.Domain)
-	}
-
 	return (&url.URL{
 		Scheme:   "vless",
 		User:     url.User(item.UUID),
+		Host:     net.JoinHostPort(item.Domain.Domain, strconv.Itoa(443)),
+		RawQuery: query.Encode(),
+		Fragment: item.Name,
+	}).String(), nil
+}
+
+func shareAnyTLSURI(item models.ProxyInbound) (string, error) {
+	if item.Password == "" {
+		return "", errors.New("inbound anytls password missing")
+	}
+	query := url.Values{}
+	query.Set("security", item.Security)
+	query.Set("sni", shareSNI(item))
+	return (&url.URL{
+		Scheme:   "anytls",
+		User:     url.User(item.Password),
 		Host:     net.JoinHostPort(item.Domain.Domain, strconv.Itoa(443)),
 		RawQuery: query.Encode(),
 		Fragment: item.Name,
@@ -356,5 +479,8 @@ func transportType(item models.ProxyInbound) string {
 }
 
 func shareSNI(item models.ProxyInbound) string {
+	if item.RouteSNI != "" {
+		return item.RouteSNI
+	}
 	return item.RealityHandshakeServer
 }

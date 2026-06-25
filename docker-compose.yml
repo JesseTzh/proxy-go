@@ -8,7 +8,7 @@ services:
        dockerfile: Dockerfile.amd64
        args:
          NGINX_VERSION: "1.30.2"
-         XRAY_VERSION: "25.6.8"
+         SING_BOX_VERSION: "1.13.13"
 
     restart: unless-stopped
 
@@ -21,7 +21,7 @@ services:
       # HTTP-01 证书验证必须保证宿主机 80 可被公网访问。
       - "80:80/tcp"
 
-      # 正式入口，Nginx stream 在容器内监听 443，并按 SNI 分流到 Xray 或内部 HTTPS。
+      # 正式入口，Nginx stream 在容器内监听 443，并按 SNI 分流到 sing-box 或内部 HTTPS。
       - "443:443/tcp"
 
       # 初始管理端口，可在系统初始化完成后关闭。
@@ -38,10 +38,10 @@ services:
       PROXY_GO_ACME_EMAIL: ${PROXY_GO_ACME_EMAIL}
 
     volumes:
-      # 持久化 SQLite、证书、生成的 Nginx/Xray 配置等。
+      # 持久化 SQLite、证书、生成的 Nginx/sing-box 配置等。
       - ./data:/var/lib/proxy-go
 
-      # 持久化应用日志、审计日志、Nginx/Xray 托管日志。
+      # 持久化应用日志、审计日志、Nginx/sing-box 托管日志。
       - ./logs:/var/log/proxy-go
 
       # 可选：挂载自定义配置文件。
