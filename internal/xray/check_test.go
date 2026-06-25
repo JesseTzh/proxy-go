@@ -107,7 +107,7 @@ func TestStartRendersAndStartsWhenEnabledProxyInboundExists(t *testing.T) {
 		RealityPrivateKey:      "private-key",
 		RealityPublicKey:       "public-key",
 		RealityShortID:         "abcd1234",
-		RealityHandshakeServer: "www.cloudflare.com",
+		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
 		RealityMaxTimeDiff:     60,
 		Enabled:                true,

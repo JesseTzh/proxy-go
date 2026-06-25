@@ -48,7 +48,7 @@ Xray REALITY public inbound
 VLESS Reality Vision 使用标准 REALITY 语义：
 
 - 客户端连接地址：入口绑定域名或服务器地址，例如 `proxy.example.com:443`。
-- REALITY `serverName` / 分享链接 `sni`：握手服务器，例如 `www.cloudflare.com`。
+- REALITY `serverName` / 分享链接 `sni`：握手服务器，例如 `apple.com`，必须显式配置，不能使用客户端连接地址作为默认值。
 - Xray 服务端 `serverNames`：握手服务器。
 - Xray 服务端 `dest`：内置 Nginx HTTPS 地址 `127.0.0.1:30443`。
 

@@ -146,7 +146,7 @@ func TestInboundRoutesReplaceVLESSRoutes(t *testing.T) {
 		RealityPrivateKey:      "private",
 		RealityPublicKey:       "public",
 		RealityShortID:         "abcd1234",
-		RealityHandshakeServer: "www.cloudflare.com",
+		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
 		RealityMaxTimeDiff:     60,
 		Enabled:                true,
@@ -189,7 +189,7 @@ func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
 		XHTTPMode:              "auto",
 		RealityPublicKey:       "public",
 		RealityShortID:         "abcd1234",
-		RealityHandshakeServer: "www.cloudflare.com",
+		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
 		RealityMaxTimeDiff:     60,
 		Enabled:                true,
@@ -213,7 +213,7 @@ func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.Data.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&mode=auto&path=%2Fxhttp&pbk=public&security=reality&sid=abcd1234&sni=www.cloudflare.com&type=xhttp#main" {
+	if body.Data.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&mode=auto&path=%2Fxhttp&pbk=public&security=reality&sid=abcd1234&sni=apple.com&type=xhttp#main" {
 		t.Fatalf("unexpected uri: %s", body.Data.URI)
 	}
 }

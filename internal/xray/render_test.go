@@ -27,7 +27,7 @@ func TestRenderVLESSXHTTPRealityInboundUsesPublicHTTPS(t *testing.T) {
 		`"port": 443`,
 		`"dest": "127.0.0.1:30443"`,
 		`"serverNames"`,
-		`"www.cloudflare.com"`,
+		`"apple.com"`,
 		`"shortIds"`,
 	} {
 		if !strings.Contains(text, want) {
@@ -96,7 +96,7 @@ func testInbound() runtimeconfig.ProxyInbound {
 		RealityPrivateKey:      "private-key",
 		RealityPublicKey:       "public-key",
 		RealityShortID:         "abcd1234",
-		RealityHandshakeServer: "www.cloudflare.com",
+		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
 		RealityMaxTimeDiff:     60,
 	}

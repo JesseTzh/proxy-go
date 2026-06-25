@@ -20,7 +20,7 @@ func TestCreateVLESSXHTTPRealityGeneratesHiddenSecrets(t *testing.T) {
 	item, err := svc.Create(context.Background(), CreateRequest{
 		Name:                   "main",
 		DomainID:               1,
-		RealityHandshakeServer: "www.cloudflare.com",
+		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
 		Enabled:                true,
 	})
@@ -59,15 +59,32 @@ func TestCreateRejectsRealityVisionTemplate(t *testing.T) {
 	}
 }
 
+func TestCreateRequiresRealityHandshakeServer(t *testing.T) {
+	db := testutil.NewDB(t)
+	cfg := testutil.NewConfig(t)
+	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
+	svc := New(db, cfg, fakeGenerator())
+
+	_, err := svc.Create(context.Background(), CreateRequest{
+		Name:     "main",
+		DomainID: 1,
+		Enabled:  true,
+	})
+	if err == nil || !strings.Contains(err.Error(), "realityHandshakeServer required") {
+		t.Fatalf("expected missing handshake server error, got %v", err)
+	}
+}
+
 func TestConfigDetailsReturnsRenderedInboundJSON(t *testing.T) {
 	db := testutil.NewDB(t)
 	cfg := testutil.NewConfig(t)
 	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
 	svc := New(db, cfg, fakeGenerator())
 	item, err := svc.Create(context.Background(), CreateRequest{
-		Name:     "main",
-		DomainID: 1,
-		Enabled:  true,
+		Name:                   "main",
+		DomainID:               1,
+		RealityHandshakeServer: "apple.com",
+		Enabled:                true,
 	})
 	if err != nil {
 		t.Fatalf("create inbound: %v", err)
@@ -90,9 +107,10 @@ func TestShareDetailsBuildsVLESSXHTTPURI(t *testing.T) {
 	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
 	svc := New(db, cfg, fakeGenerator())
 	item, err := svc.Create(context.Background(), CreateRequest{
-		Name:     "xhttp",
-		DomainID: 1,
-		Enabled:  true,
+		Name:                   "xhttp",
+		DomainID:               1,
+		RealityHandshakeServer: "apple.com",
+		Enabled:                true,
 	})
 	if err != nil {
 		t.Fatalf("create inbound: %v", err)
@@ -103,7 +121,7 @@ func TestShareDetailsBuildsVLESSXHTTPURI(t *testing.T) {
 		t.Fatalf("share details: %v", err)
 	}
 
-	want := "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&mode=auto&path=%2Fxhttp&pbk=public-key&security=reality&sid=abcd1234&sni=proxy.example.com&type=xhttp#xhttp"
+	want := "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&mode=auto&path=%2Fxhttp&pbk=public-key&security=reality&sid=abcd1234&sni=apple.com&type=xhttp#xhttp"
 	if share.URI != want {
 		t.Fatalf("unexpected share uri:\nwant %s\n got %s", want, share.URI)
 	}

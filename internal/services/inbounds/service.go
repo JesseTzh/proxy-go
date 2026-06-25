@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/proxy-go/proxy-go/internal/config"
 	"github.com/proxy-go/proxy-go/internal/models"
@@ -209,6 +210,7 @@ func applyDefaults(item *models.ProxyInbound) error {
 	if item.XHTTPMode == "" {
 		item.XHTTPMode = "auto"
 	}
+	item.RealityHandshakeServer = strings.TrimSpace(item.RealityHandshakeServer)
 	return nil
 }
 
@@ -221,6 +223,9 @@ func validate(item *models.ProxyInbound) error {
 	}
 	if item.ListenPort <= 0 {
 		return errors.New("listenPort required")
+	}
+	if item.Security == "reality" && item.RealityHandshakeServer == "" {
+		return errors.New("realityHandshakeServer required")
 	}
 	return nil
 }
@@ -319,8 +324,5 @@ func transportType(item models.ProxyInbound) string {
 }
 
 func shareSNI(item models.ProxyInbound) string {
-	if item.RealityHandshakeServer != "" {
-		return item.RealityHandshakeServer
-	}
-	return item.Domain.Domain
+	return item.RealityHandshakeServer
 }

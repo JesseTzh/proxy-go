@@ -43,7 +43,7 @@ func TestLoadIncludesEnabledResourcesAndSystemSetting(t *testing.T) {
 		RealityPrivateKey:      "private",
 		RealityPublicKey:       "public",
 		RealityShortID:         "abcd1234",
-		RealityHandshakeServer: "www.cloudflare.com",
+		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
 		RealityMaxTimeDiff:     60,
 		Enabled:                true,

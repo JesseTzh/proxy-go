@@ -26,7 +26,7 @@ const defaults: InboundFormValues = {
   domainId: 1,
   xhttpPath: '/xhttp',
   xhttpMode: 'auto',
-  realityHandshakeServer: 'www.cloudflare.com',
+  realityHandshakeServer: 'apple.com',
   realityHandshakePort: 443,
   realityMaxTimeDiff: 60,
   enabled: true,
@@ -280,7 +280,7 @@ function InboundDialog({
             </FormField>
             <FormField
               label="客户端连接域名"
-              description="客户端实际连接的域名，用于生成分享链接的 Host，并作为 XHTTP REALITY 的 serverName。"
+              description="客户端实际连接的域名，仅用于生成分享链接的 Host；不会作为 REALITY serverName/sni。"
               error={errors.domainId?.message}
               data-testid="inbound-domain-field"
             >
@@ -316,7 +316,7 @@ function InboundDialog({
             </FormField>
             <FormField
               label="REALITY 握手服务器"
-              description="REALITY 客户端使用的伪装 SNI，会写入 serverNames；普通 HTTPS 固定回落到内部 Nginx。"
+              description="REALITY 客户端使用的伪装 SNI，会写入分享链接 sni 和 Xray serverNames，例如 apple.com。普通 HTTPS 固定回落到内部 Nginx。"
               error={errors.realityHandshakeServer?.message}
               data-testid="inbound-handshake-server-field"
             >
@@ -363,7 +363,7 @@ function valuesFromItem(item: ProxyInbound): InboundFormValues {
     domainId: item.domainId,
     xhttpPath: item.xhttpPath || '/xhttp',
     xhttpMode: item.xhttpMode || 'auto',
-    realityHandshakeServer: item.realityHandshakeServer || 'www.cloudflare.com',
+    realityHandshakeServer: item.realityHandshakeServer || 'apple.com',
     realityHandshakePort: item.realityHandshakePort || 443,
     realityMaxTimeDiff: item.realityMaxTimeDiff || 60,
     enabled: item.enabled,

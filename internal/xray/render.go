@@ -104,10 +104,7 @@ func realityDest(in runtimeconfig.ProxyInbound) string {
 }
 
 func realityServerName(in runtimeconfig.ProxyInbound) string {
-	if in.RealityHandshakeServer != "" {
-		return in.RealityHandshakeServer
-	}
-	return in.Domain
+	return in.RealityHandshakeServer
 }
 
 func realityHandshakePort(in runtimeconfig.ProxyInbound) int {
