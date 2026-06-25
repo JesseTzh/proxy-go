@@ -165,7 +165,7 @@ export function VlessPage() {
           <TableRow key={item.id} data-testid={`inbound-row-${item.id}`}>
             <TableCell>{item.name}</TableCell>
             <TableCell>{templateLabels[item.template] ?? item.template}</TableCell>
-            <TableCell>{item.domain?.domain || item.domainId}</TableCell>
+            <TableCell>{item.domain?.domain || domainNameForValue(domains, item.domainId, '-')}</TableCell>
             <TableCell>{formatInboundListen(item)}</TableCell>
             <TableCell>{item.network}{item.xhttpPath ? ` ${item.xhttpPath}` : ''}</TableCell>
             <TableCell><StatusBadge tone={item.enabled ? 'success' : 'neutral'}>{item.enabled ? '启用' : '停用'}</StatusBadge></TableCell>
@@ -312,10 +312,12 @@ function InboundDialog({
                 render={({ field }) => (
                   <Select value={String(field.value)} onValueChange={(value) => field.onChange(Number(value))}>
                     <SelectTrigger className="w-full" data-testid="inbound-domain-select">
-                      <SelectValue placeholder="选择域名…" />
+                      <SelectValue placeholder="选择域名…">
+                        {value => domainNameForValue(domains, value, '选择域名…')}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
-                      {domains.map(domain => <SelectItem key={domain.id} value={String(domain.id)}>{domain.domain}</SelectItem>)}
+                      {domains.map(domain => <SelectItem key={domain.id} value={String(domain.id)} label={domain.domain}>{domain.domain}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 )}
@@ -404,4 +406,10 @@ function formatInboundListen(item: ProxyInbound) {
     return '0.0.0.0:443'
   }
   return `${item.listenAddr}:${item.listenPort}`
+}
+
+function domainNameForValue(domains: { id: number; domain: string }[], value: unknown, fallback: string) {
+  const id = Number(value)
+  if (!Number.isFinite(id)) return fallback
+  return domains.find(domain => domain.id === id)?.domain ?? fallback
 }

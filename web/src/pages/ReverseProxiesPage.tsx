@@ -111,8 +111,12 @@ export function ReverseProxiesPage(){
             name="domainId"
             render={({ field }) => (
               <Select value={field.value ? String(field.value) : undefined} onValueChange={value => field.onChange(Number(value))} disabled={domainsLoading || domains.length === 0}>
-                <SelectTrigger className="w-full" data-testid="reverse-domain-select"><SelectValue placeholder={domainsLoading ? '加载域名…' : '选择域名…'} /></SelectTrigger>
-                <SelectContent>{domains.map(d=><SelectItem key={d.id} value={String(d.id)}>{d.domain}</SelectItem>)}</SelectContent>
+                <SelectTrigger className="w-full" data-testid="reverse-domain-select">
+                  <SelectValue placeholder={domainsLoading ? '加载域名…' : '选择域名…'}>
+                    {value => domainNameForValue(domains, value, domainsLoading ? '加载域名…' : '选择域名…')}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>{domains.map(d=><SelectItem key={d.id} value={String(d.id)} label={d.domain}>{d.domain}</SelectItem>)}</SelectContent>
               </Select>
             )}
           />
@@ -155,10 +159,12 @@ export function ReverseProxiesPage(){
             <TableCell data-testid={`reverse-domain-${x.id}`}>
               {editing ? (
                 <Select value={String(editValues.domainId || '')} onValueChange={value => updateEditValue('domainId', Number(value))} disabled={domainsLoading || domains.length === 0}>
-                  <SelectTrigger className="w-44" data-testid={`reverse-edit-domain-${x.id}`}><SelectValue /></SelectTrigger>
-                  <SelectContent>{domains.map(d=><SelectItem key={d.id} value={String(d.id)}>{d.domain}</SelectItem>)}</SelectContent>
+                  <SelectTrigger className="w-44" data-testid={`reverse-edit-domain-${x.id}`}>
+                    <SelectValue>{value => domainNameForValue(domains, value, '选择域名…')}</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>{domains.map(d=><SelectItem key={d.id} value={String(d.id)} label={d.domain}>{d.domain}</SelectItem>)}</SelectContent>
                 </Select>
-              ) : x.domain?.domain || x.domainId}
+              ) : x.domain?.domain || domainNameForValue(domains, x.domainId, '-')}
             </TableCell>
             <TableCell data-testid={`reverse-target-${x.id}`}>
               {editing ? (
@@ -250,4 +256,10 @@ function FormCheckbox({ control, name, label, 'data-testid': dataTestId }: { con
       )}
     />
   )
+}
+
+function domainNameForValue(domains: { id: number; domain: string }[], value: unknown, fallback: string) {
+  const id = Number(value)
+  if (!Number.isFinite(id)) return fallback
+  return domains.find(domain => domain.id === id)?.domain ?? fallback
 }
