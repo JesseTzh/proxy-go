@@ -58,6 +58,9 @@ func (s *Service) Apply(ctx context.Context) error {
 	if err := os.MkdirAll(s.cfg.Paths.XrayConfDir, 0755); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(s.cfg.Paths.LogDir, 0755); err != nil {
+		return err
+	}
 	tmpFile, err := os.CreateTemp(s.cfg.Paths.XrayConfDir, ".config-*.json")
 	if err != nil {
 		return err

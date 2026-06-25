@@ -15,12 +15,14 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 	if cfg != nil {
 		snapshot.PublicHTTPSPort = cfg.Server.PublicHTTPSPort
 		snapshot.ManagedHTTPSAddr = cfg.Server.ManagedHTTPSAddr
+		snapshot.LogDir = cfg.Paths.LogDir
 	}
 	var setting models.SystemSetting
 	if err := db.First(&setting, 1).Error; err != nil && err != gorm.ErrRecordNotFound {
 		return snapshot, err
 	}
 	snapshot.ManagementDomain = setting.ManagementDomain
+	snapshot.XrayDebugEnabled = setting.XrayDebugEnabled
 
 	var rules []models.ReverseProxyRule
 	if err := db.Preload("Domain").Where("enabled = ?", true).Find(&rules).Error; err != nil {

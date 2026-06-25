@@ -61,6 +61,8 @@ func Router(d Deps) *gin.Engine {
 	protected.POST("/runtime/xray/start", handlers.StartXray(d))
 	protected.POST("/runtime/xray/stop", handlers.StopXray(d))
 	protected.POST("/runtime/xray/restart", handlers.RestartXray(d))
+	protected.POST("/runtime/xray/debug/enable", handlers.SetXrayDebug(d, true))
+	protected.POST("/runtime/xray/debug/disable", handlers.SetXrayDebug(d, false))
 	protected.GET("/runtime/xray/logs", handlers.XrayLogs(d))
 	protected.GET("/runtime/logs", handlers.RuntimeLogs(d))
 	protected.GET("/capabilities", handlers.Capabilities(d))

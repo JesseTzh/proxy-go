@@ -106,6 +106,18 @@ func RestartXray(d Deps) gin.HandlerFunc {
 	}
 }
 
+func SetXrayDebug(d Deps, enabled bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+		defer cancel()
+		if err := runtimeService(d).SetXrayDebug(ctx, enabled); err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
+		response.OK(c)
+	}
+}
+
 func RuntimeLogs(d Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		response.JSON(c, 200, runtimeService(d).Logs())

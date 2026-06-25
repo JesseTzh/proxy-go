@@ -24,6 +24,7 @@ type SystemSetting struct {
 	ManagementDomain         string     `json:"managementDomain"`
 	ACMEEmail                string     `json:"acmeEmail"`
 	RuntimeConfigStatus      string     `json:"runtimeConfigStatus"`
+	XrayDebugEnabled         bool       `json:"xrayDebugEnabled"`
 	LastNginxReloadAt        *time.Time `json:"lastNginxReloadAt"`
 	LastXrayRestartAt        *time.Time `json:"lastXrayRestartAt"`
 	LastCertificateRenewalAt *time.Time `json:"lastCertificateRenewalAt"`

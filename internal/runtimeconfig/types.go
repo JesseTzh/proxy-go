@@ -4,6 +4,8 @@ type Snapshot struct {
 	ManagementDomain string
 	PublicHTTPSPort  int
 	ManagedHTTPSAddr string
+	XrayDebugEnabled bool
+	LogDir           string
 	ReverseProxies   []ReverseProxy
 	ProxyInbounds    []ProxyInbound
 }

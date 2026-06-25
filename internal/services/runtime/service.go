@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/proxy-go/proxy-go/internal/config"
@@ -46,6 +47,7 @@ type Status struct {
 	NginxPublicHTTPSPort     int        `json:"nginxPublicHttpsPort"`
 	NginxManagedHTTPSAddr    string     `json:"nginxManagedHttpsAddr"`
 	XrayInboundListen        string     `json:"xrayInboundListen"`
+	XrayDebugEnabled         bool       `json:"xrayDebugEnabled"`
 	DomainCount              int64      `json:"domainCount"`
 	CertificateCount         int64      `json:"certificateCount"`
 	ReverseProxyCount        int64      `json:"reverseProxyCount"`
@@ -100,6 +102,7 @@ func (s *Service) Status() (Status, error) {
 	status.LastNginxReloadAt = setting.LastNginxReloadAt
 	status.LastXrayRestartAt = setting.LastXrayRestartAt
 	status.LastCertificateRenewalAt = setting.LastCertificateRenewalAt
+	status.XrayDebugEnabled = setting.XrayDebugEnabled
 	return status, nil
 }
 
@@ -156,6 +159,17 @@ func (s *Service) RestartXray(ctx context.Context) error {
 	return s.DB.Model(&models.SystemSetting{}).Where("id=1").Update("last_xray_restart_at", &now).Error
 }
 
+func (s *Service) SetXrayDebug(ctx context.Context, enabled bool) error {
+	if err := s.DB.Model(&models.SystemSetting{}).Where("id=1").Update("xray_debug_enabled", enabled).Error; err != nil {
+		return err
+	}
+	if err := s.Xray.Apply(ctx); err != nil {
+		return err
+	}
+	now := time.Now()
+	return s.DB.Model(&models.SystemSetting{}).Where("id=1").Update("last_xray_restart_at", &now).Error
+}
+
 func (s *Service) Logs() LogSummary {
 	return LogSummary{Logs: []string{"logs are written under " + filepath.Clean(s.Cfg.Paths.LogDir)}}
 }
@@ -170,7 +184,40 @@ func (s *Service) NginxConfig() (ConfigSnapshot, error) {
 }
 
 func (s *Service) XrayLogs() LogSummary {
-	return LogSummary{Logs: s.Xray.Logs()}
+	logs := append([]string{}, s.Xray.Logs()...)
+	logs = appendLogFile(logs, "xray-error.log", filepath.Join(s.Cfg.Paths.LogDir, "xray-error.log"))
+	logs = appendLogFile(logs, "xray-access.log", filepath.Join(s.Cfg.Paths.LogDir, "xray-access.log"))
+	return LogSummary{Logs: logs}
+}
+
+func appendLogFile(logs []string, name, path string) []string {
+	lines, err := tailLogFile(path, 64*1024)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return logs
+		}
+		return append(logs, "==== "+name+" read failed ====", err.Error())
+	}
+	if len(lines) == 0 {
+		return logs
+	}
+	logs = append(logs, "==== "+name+" ====")
+	return append(logs, lines...)
+}
+
+func tailLogFile(path string, limit int64) ([]string, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(content)) > limit {
+		content = content[int64(len(content))-limit:]
+	}
+	text := strings.TrimRight(string(content), "\n")
+	if text == "" {
+		return []string{}, nil
+	}
+	return strings.Split(text, "\n"), nil
 }
 
 func (s *Service) saveApply(status string) {

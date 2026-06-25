@@ -3,6 +3,7 @@ package xray
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
 	"github.com/proxy-go/proxy-go/internal/runtimeconfig"
 )
@@ -17,15 +18,24 @@ func Render(snapshot runtimeconfig.Snapshot) ([]byte, error) {
 		if publicXHTTPCount > 1 {
 			return nil, fmt.Errorf("only one enabled vless-xhttp inbound can listen on public https port")
 		}
-		rendered, err := RenderInbound(inbound)
+		rendered, err := RenderInboundWithDebug(inbound, snapshot.XrayDebugEnabled)
 		if err != nil {
 			return nil, err
 		}
 		inbounds = append(inbounds, rendered)
 	}
 
+	logConfig := map[string]any{"loglevel": "info"}
+	if snapshot.XrayDebugEnabled {
+		logConfig["loglevel"] = "debug"
+		if snapshot.LogDir != "" {
+			logConfig["access"] = filepath.Join(snapshot.LogDir, "xray-access.log")
+			logConfig["error"] = filepath.Join(snapshot.LogDir, "xray-error.log")
+		}
+	}
+
 	cfg := map[string]any{
-		"log":      map[string]any{"loglevel": "info"},
+		"log":      logConfig,
 		"inbounds": inbounds,
 		"outbounds": []any{
 			map[string]any{"protocol": "freedom", "tag": "direct"},
@@ -39,15 +49,19 @@ func Render(snapshot runtimeconfig.Snapshot) ([]byte, error) {
 }
 
 func RenderInbound(in runtimeconfig.ProxyInbound) (map[string]any, error) {
+	return RenderInboundWithDebug(in, false)
+}
+
+func RenderInboundWithDebug(in runtimeconfig.ProxyInbound, debug bool) (map[string]any, error) {
 	switch in.Template {
 	case "vless-xhttp":
-		return renderVLESSXHTTP(in), nil
+		return renderVLESSXHTTP(in, debug), nil
 	default:
 		return nil, fmt.Errorf("unsupported inbound template %q", in.Template)
 	}
 }
 
-func renderVLESSXHTTP(in runtimeconfig.ProxyInbound) map[string]any {
+func renderVLESSXHTTP(in runtimeconfig.ProxyInbound, debug bool) map[string]any {
 	stream := map[string]any{
 		"network": "xhttp",
 		"xhttpSettings": map[string]any{
@@ -56,7 +70,7 @@ func renderVLESSXHTTP(in runtimeconfig.ProxyInbound) map[string]any {
 		},
 		"security": "reality",
 		"realitySettings": map[string]any{
-			"show":        false,
+			"show":        debug,
 			"target":      realityTarget(in),
 			"serverNames": []any{realityServerName(in)},
 			"privateKey":  in.RealityPrivateKey,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Boxes, FileText, Globe, Network, Play, Power, RefreshCw, RotateCw, ScrollText, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { Boxes, Bug, FileText, Globe, Network, Play, Power, RefreshCw, RotateCw, ScrollText, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -76,6 +76,20 @@ export function DashboardPage() {
       // global error dialog handles API failures
     } finally {
       setNginxConfigLoading(false)
+    }
+  }
+
+  async function toggleXrayDebug() {
+    const enabled = Boolean(status?.xrayDebugEnabled)
+    setBusy('xray-debug')
+    try {
+      await postJson(`runtime/xray/debug/${enabled ? 'disable' : 'enable'}`)
+      toast.success(enabled ? 'Xray 调试日志已关闭' : 'Xray 调试日志已开启')
+      void load()
+    } catch {
+      // global error dialog handles API failures
+    } finally {
+      setBusy(undefined)
     }
   }
 
@@ -169,6 +183,8 @@ export function DashboardPage() {
             busy={busy}
             onAction={control}
             onLogs={showXrayLogs}
+            onDebug={toggleXrayDebug}
+            debugEnabled={status?.xrayDebugEnabled}
             data-testid="dashboard-process-xray"
           />
         </div>
@@ -221,6 +237,8 @@ function ProcessCard({
   onAction,
   onLogs,
   onConfig,
+  onDebug,
+  debugEnabled,
   'data-testid': dataTestId,
 }: {
   title: string
@@ -231,10 +249,13 @@ function ProcessCard({
   onAction: (process: ProcessName, action: ProcessAction) => Promise<void>
   onLogs?: () => Promise<void>
   onConfig?: () => Promise<void>
+  onDebug?: () => Promise<void>
+  debugEnabled?: boolean
   'data-testid'?: string
 }) {
   const running = Boolean(status?.running)
-  const actionCount = 3 + (onLogs ? 1 : 0) + (onConfig ? 1 : 0)
+  const actionCount = 3 + (onLogs ? 1 : 0) + (onConfig ? 1 : 0) + (onDebug ? 1 : 0)
+  const actionColumns = actionCount >= 5 ? 'sm:grid-cols-5' : actionCount === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'
 
   return (
     <Card className="rounded-xl bg-white p-7 shadow-[var(--shadow-border)]" data-testid={dataTestId}>
@@ -247,7 +268,7 @@ function ProcessCard({
         <RuntimeBadge running={running} data-testid={`${dataTestId}-status`} />
       </CardHeader>
 
-      <div className={`mt-6 grid gap-3 ${actionCount === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`} data-testid={`${dataTestId}-actions`}>
+      <div className={`mt-6 grid gap-3 ${actionColumns}`} data-testid={`${dataTestId}-actions`}>
         <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" disabled={busy === `${process}-start`} onClick={() => onAction(process, 'start')} data-testid={`${dataTestId}-start`}>
           <Play size={16} aria-hidden="true" />
           启动
@@ -270,6 +291,12 @@ function ProcessCard({
           <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" onClick={onConfig} data-testid={`${dataTestId}-config`}>
             <FileText size={16} aria-hidden="true" />
             配置
+          </Button>
+        ) : null}
+        {onDebug ? (
+          <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" disabled={busy === 'xray-debug'} onClick={onDebug} data-testid={`${dataTestId}-debug`}>
+            <Bug size={16} aria-hidden="true" />
+            {debugEnabled ? '关闭调试' : '开启调试'}
           </Button>
         ) : null}
       </div>
