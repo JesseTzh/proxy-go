@@ -25,9 +25,9 @@ func TestRenderVLESSXHTTPRealityInboundUsesPublicHTTPS(t *testing.T) {
 		`"security": "reality"`,
 		`"listen": "0.0.0.0"`,
 		`"port": 443`,
-		`"dest": "www.cloudflare.com:443"`,
+		`"dest": "127.0.0.1:30443"`,
 		`"serverNames"`,
-		`"proxy.example.com"`,
+		`"www.cloudflare.com"`,
 		`"shortIds"`,
 	} {
 		if !strings.Contains(text, want) {

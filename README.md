@@ -5,12 +5,12 @@
 proxy-go 是一个面向单机部署的代理网关管理程序，提供 Web 管理面板，并统一编排证书、反向代理和 Xray 代理入口配置。
 
 1. 自动申请 SSL 证书：基于域名配置发起 ACME HTTP-01 验证，完成证书签发、落盘和续期管理，供后续 HTTPS 入口和反向代理配置使用。
-2. 端口反向代理：通过内置 Nginx 生成和加载反向代理配置，将普通 HTTPS 流量按域名或路径转发到指定后端服务。
+2. 端口反向代理：通过内置 Nginx 生成和加载反向代理配置，将普通 HTTPS 流量按域名转发到指定后端服务。
 3. 使用 Xray 创建指定协议代理：通过 Xray-core 生成代理入站配置，REALITY 入口直接承接公网 HTTPS 端口，并由程序统一管理配置生成、校验和运行状态。
 
 ## 网络流量架构
 
-当前运行模型中，公网 `443` 由 Xray REALITY 直接监听。合法 REALITY 客户端由 Xray 处理；非 REALITY、鉴权失败或普通 HTTPS 流量会通过 REALITY `dest` 回落到内置 Nginx，再由 Nginx 按域名和路径处理管理面板、反向代理和 XHTTP 入口。
+当前运行模型中，公网 `443` 由 Xray REALITY 直接监听。合法 REALITY 客户端由 Xray 处理；非 REALITY、鉴权失败或普通 HTTPS 流量会通过 REALITY `dest` 回落到内置 Nginx，再由 Nginx 按域名处理管理面板和反向代理。
 
 ```text
 Internet
@@ -35,8 +35,7 @@ Xray REALITY public inbound
               v
             Nginx internal HTTPS
               |-- management domain -> proxy-go Web/API
-              |-- reverse proxy     -> configured upstream service
-              `-- VLESS XHTTP path  -> local Xray XHTTP inbound
+              `-- reverse proxy     -> configured upstream service
 ```
 
 关键端口默认值：

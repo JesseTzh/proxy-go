@@ -316,7 +316,7 @@ function InboundDialog({
             </FormField>
             <FormField
               label="REALITY 握手服务器"
-              description="REALITY 伪装握手的目标站点，会写入 dest；留空时使用客户端连接域名。"
+              description="REALITY 客户端使用的伪装 SNI，会写入 serverNames；普通 HTTPS 固定回落到内部 Nginx。"
               error={errors.realityHandshakeServer?.message}
               data-testid="inbound-handshake-server-field"
             >

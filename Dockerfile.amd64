@@ -14,7 +14,7 @@
 # 运行：
 #   docker run -d --name proxy-go \
 #     --restart unless-stopped \
-#     -p 80:80 -p 30080:30080 \
+#     -p 80:80 -p 443:443 -p 30080:30080 \
 #     -e PROXY_GO_INITIAL_PASSWORD='请改成强密码' \
 #     -e PROXY_GO_ACME_EMAIL='admin@example.com' \
 #     -v proxy-go-data:/var/lib/proxy-go \
@@ -230,8 +230,9 @@ RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh /usr/local/bin/proxy-go /usr/
 WORKDIR /var/lib/proxy-go
 
 # 80: HTTP-01 / HTTP 跳转
+# 443: Xray REALITY 公网入口，普通 HTTPS 回落到内部 Nginx
 # 30080: 初始管理端口
-EXPOSE 80/tcp 30080/tcp
+EXPOSE 80/tcp 443/tcp 30080/tcp
 
 VOLUME ["/var/lib/proxy-go", "/var/log/proxy-go"]
 
