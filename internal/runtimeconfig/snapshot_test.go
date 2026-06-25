@@ -45,7 +45,7 @@ func TestLoadIncludesEnabledResourcesAndSystemSetting(t *testing.T) {
 		RealityShortID:         "abcd1234",
 		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
-		RealityMaxTimeDiff:     60,
+		RealityMaxTimeDiff:     60000,
 		Enabled:                true,
 	})
 	db.Create(&models.ProxyInbound{

@@ -190,7 +190,7 @@ func TestInboundRoutesReplaceVLESSRoutes(t *testing.T) {
 		RealityShortID:         "abcd1234",
 		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
-		RealityMaxTimeDiff:     60,
+		RealityMaxTimeDiff:     60000,
 		Enabled:                true,
 	}).Error; err != nil {
 		t.Fatalf("create vless: %v", err)
@@ -233,7 +233,7 @@ func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
 		RealityShortID:         "abcd1234",
 		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
-		RealityMaxTimeDiff:     60,
+		RealityMaxTimeDiff:     60000,
 		Enabled:                true,
 	}).Error; err != nil {
 		t.Fatalf("create vless: %v", err)

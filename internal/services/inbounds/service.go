@@ -183,7 +183,7 @@ func applyDefaults(item *models.ProxyInbound) error {
 	item.ListenAddr = defaultListenAddr
 	item.ListenPort = defaultListenPort
 	if item.RealityMaxTimeDiff == 0 {
-		item.RealityMaxTimeDiff = 60
+		item.RealityMaxTimeDiff = 60000
 	}
 	if item.RealityHandshakePort == 0 {
 		item.RealityHandshakePort = 443

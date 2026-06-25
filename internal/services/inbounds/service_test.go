@@ -141,7 +141,7 @@ func TestCreateWithMinimalRequestAppliesHiddenDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create inbound: %v", err)
 	}
-	if !item.Enabled || item.XHTTPMode != "auto" || item.RealityMaxTimeDiff != 60 || item.RealityHandshakePort != 443 {
+	if !item.Enabled || item.XHTTPMode != "auto" || item.RealityMaxTimeDiff != 60000 || item.RealityHandshakePort != 443 {
 		t.Fatalf("unexpected hidden defaults: %#v", item)
 	}
 }

@@ -64,5 +64,10 @@ func seedDefaults(db *gorm.DB, cfg *config.Config) error {
 			return err
 		}
 	}
+	if err := db.Model(&models.ProxyInbound{}).
+		Where("reality_max_time_diff = ?", 60).
+		Update("reality_max_time_diff", 60000).Error; err != nil {
+		return err
+	}
 	return nil
 }

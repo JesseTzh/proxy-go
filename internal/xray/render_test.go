@@ -96,7 +96,7 @@ func testInbound() runtimeconfig.ProxyInbound {
 		RealityShortID:         "abcd1234",
 		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
-		RealityMaxTimeDiff:     60,
+		RealityMaxTimeDiff:     60000,
 	}
 }
 

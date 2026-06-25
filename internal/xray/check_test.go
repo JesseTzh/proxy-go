@@ -109,7 +109,7 @@ func TestStartRendersAndStartsWhenEnabledProxyInboundExists(t *testing.T) {
 		RealityShortID:         "abcd1234",
 		RealityHandshakeServer: "apple.com",
 		RealityHandshakePort:   443,
-		RealityMaxTimeDiff:     60,
+		RealityMaxTimeDiff:     60000,
 		Enabled:                true,
 	}).Error; err != nil {
 		t.Fatalf("create proxy inbound: %v", err)
