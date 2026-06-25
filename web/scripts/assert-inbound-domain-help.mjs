@@ -14,12 +14,12 @@ const expectations = [
   [vlessSource, 'VLESS XHTTP Reality', 'xhttp reality default name'],
   [vlessSource, 'label="客户端连接域名"', 'client connection domain label'],
   [vlessSource, '客户端实际连接的域名', 'client domain explanation'],
-  [vlessSource, '不会作为 REALITY serverName/sni', 'client domain does not become reality server name explanation'],
-  [vlessSource, '当前仅支持使用 443 端口作为公网入口', 'public entry note'],
+  [vlessSource, '普通 HTTPS 会按该域名进入内部 Nginx', 'client domain routes normal https explanation'],
+  [vlessSource, '公网 443 由 Nginx stream 统一监听', 'public entry note'],
   [vlessSource, 'label="REALITY 握手服务器"', 'reality handshake server label'],
   [vlessSource, 'REALITY 客户端使用的伪装 SNI', 'handshake server explanation'],
   [vlessSource, '例如 apple.com', 'apple handshake server example'],
-  [vlessSource, '普通 HTTPS 固定回落到内部 Nginx', 'managed https fallback explanation'],
+  [vlessSource, '不要填写已托管域名', 'managed domain conflict explanation'],
   [vlessSource, 'label="XHTTP 路径"', 'xhttp path label'],
 ]
 

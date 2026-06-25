@@ -21,7 +21,7 @@ services:
       # HTTP-01 证书验证必须保证宿主机 80 可被公网访问。
       - "80:80/tcp"
 
-      # 正式入口，Xray 在容器内监听 443；普通 HTTPS 经 REALITY dest 回落到内部 Nginx。
+      # 正式入口，Nginx stream 在容器内监听 443，并按 SNI 分流到 Xray 或内部 HTTPS。
       - "443:443/tcp"
 
       # 初始管理端口，可在系统初始化完成后关闭。

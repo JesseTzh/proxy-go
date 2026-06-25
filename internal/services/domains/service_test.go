@@ -53,7 +53,8 @@ func TestUsageCountsReverseProxyAndInboundReferences(t *testing.T) {
 		Name:       "main",
 		Template:   "vless-xhttp",
 		UUID:       "uuid",
-		ListenPort: 443,
+		ListenAddr: "127.0.0.1",
+		ListenPort: 31001,
 	})
 
 	usage, err := svc.Usage(domain.ID)

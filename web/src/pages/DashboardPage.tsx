@@ -296,18 +296,15 @@ function RuntimeBadge({ running, 'data-testid': dataTestId }: { running?: boolea
   )
 }
 
-function formatPorts(ports?: number[]) {
-  return ports?.length ? ports.join(', ') : '-'
-}
-
 function formatNginxListen(status?: RuntimeStatus) {
-  const ports = formatPorts(status?.nginxPorts)
+  const publicHTTP = status?.nginxPublicHttpPort ? `0.0.0.0:${status.nginxPublicHttpPort}` : undefined
+  const publicHTTPS = status?.nginxPublicHttpsPort ? `0.0.0.0:${status.nginxPublicHttpsPort}` : undefined
   const managed = status?.nginxManagedHttpsAddr
-  return managed ? `${ports}, ${managed}` : ports
+  return [publicHTTP, publicHTTPS, managed].filter(Boolean).join(', ') || '-'
 }
 
 function formatXrayListen(status?: RuntimeStatus) {
-  return status?.xrayPublicHttpsPort ? `0.0.0.0:${status.xrayPublicHttpsPort}` : '-'
+  return status?.xrayInboundListen || '-'
 }
 
 function formatDateTime(date: Date) {

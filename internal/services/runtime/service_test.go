@@ -15,8 +15,8 @@ func TestApplyFailureSavesFailedStatus(t *testing.T) {
 	svc := &Service{
 		DB:    db,
 		Cfg:   testutil.NewConfig(t),
-		Nginx: &fakeApplier{err: errors.New("nginx failed")},
-		Xray:  &fakeApplier{},
+		Nginx: &fakeApplier{},
+		Xray:  &fakeApplier{err: errors.New("xray failed")},
 	}
 
 	err := svc.Apply(context.Background())
@@ -32,15 +32,19 @@ func TestApplyFailureSavesFailedStatus(t *testing.T) {
 
 func TestApplySuccessSavesSuccessStatus(t *testing.T) {
 	db := testutil.NewDB(t)
+	var calls []string
 	svc := &Service{
 		DB:    db,
 		Cfg:   testutil.NewConfig(t),
-		Nginx: &fakeApplier{},
-		Xray:  &fakeApplier{},
+		Nginx: &fakeApplier{name: "nginx", calls: &calls},
+		Xray:  &fakeApplier{name: "xray", calls: &calls},
 	}
 
 	if err := svc.Apply(context.Background()); err != nil {
 		t.Fatalf("apply: %v", err)
+	}
+	if !reflect.DeepEqual(calls, []string{"xray.apply", "nginx.apply"}) {
+		t.Fatalf("unexpected apply order: %#v", calls)
 	}
 	var setting models.SystemSetting
 	db.First(&setting, 1)
@@ -100,8 +104,46 @@ func TestXrayLogsReturnProcessDetails(t *testing.T) {
 	}
 }
 
+func TestStatusReportsNginxPublicPortsAndXrayLocalInbound(t *testing.T) {
+	db := testutil.NewDB(t)
+	cfg := testutil.NewConfig(t)
+	domain := models.Domain{Domain: "proxy.example.com", Status: "enabled"}
+	if err := db.Create(&domain).Error; err != nil {
+		t.Fatalf("create domain: %v", err)
+	}
+	if err := db.Create(&models.ProxyInbound{
+		DomainID:   domain.ID,
+		Name:       "main",
+		Template:   "vless-xhttp",
+		ListenAddr: "127.0.0.1",
+		ListenPort: 31001,
+		Enabled:    true,
+	}).Error; err != nil {
+		t.Fatalf("create inbound: %v", err)
+	}
+	svc := &Service{
+		DB:    db,
+		Cfg:   cfg,
+		Nginx: &fakeApplier{},
+		Xray:  &fakeApplier{},
+	}
+
+	status, err := svc.Status()
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if status.NginxPublicHTTPPort != 80 || status.NginxPublicHTTPSPort != 443 {
+		t.Fatalf("unexpected nginx public ports: %#v", status)
+	}
+	if status.XrayInboundListen != "127.0.0.1:31001" {
+		t.Fatalf("unexpected xray inbound listen: %#v", status)
+	}
+}
+
 type fakeApplier struct {
 	err      error
+	name     string
+	calls    *[]string
 	starts   int
 	stops    int
 	restarts int
@@ -109,6 +151,7 @@ type fakeApplier struct {
 }
 
 func (f *fakeApplier) Apply(ctx context.Context) error {
+	f.record("apply")
 	return f.err
 }
 
@@ -117,18 +160,28 @@ func (f *fakeApplier) Reload(ctx context.Context) error {
 }
 
 func (f *fakeApplier) Start(ctx context.Context) error {
+	f.record("start")
 	f.starts++
 	return f.err
 }
 
 func (f *fakeApplier) Stop(ctx context.Context) error {
+	f.record("stop")
 	f.stops++
 	return f.err
 }
 
 func (f *fakeApplier) Restart(ctx context.Context) error {
+	f.record("restart")
 	f.restarts++
 	return f.err
+}
+
+func (f *fakeApplier) record(action string) {
+	if f.calls == nil || f.name == "" {
+		return
+	}
+	*f.calls = append(*f.calls, f.name+"."+action)
 }
 
 func (f *fakeApplier) Status() any {

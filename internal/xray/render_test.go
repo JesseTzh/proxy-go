@@ -9,7 +9,7 @@ import (
 	"github.com/proxy-go/proxy-go/internal/testutil"
 )
 
-func TestRenderVLESSXHTTPRealityInboundUsesPublicHTTPS(t *testing.T) {
+func TestRenderVLESSXHTTPRealityInboundUsesLocalStreamBackend(t *testing.T) {
 	out, err := Render(runtimeconfig.Snapshot{
 		ProxyInbounds: []runtimeconfig.ProxyInbound{testInbound()},
 	})
@@ -23,9 +23,9 @@ func TestRenderVLESSXHTTPRealityInboundUsesPublicHTTPS(t *testing.T) {
 		`"xhttpSettings"`,
 		`"path": "/xhttp"`,
 		`"security": "reality"`,
-		`"listen": "0.0.0.0"`,
-		`"port": 443`,
-		`"dest": "127.0.0.1:30443"`,
+		`"listen": "127.0.0.1"`,
+		`"port": 31001`,
+		`"target": "apple.com:443"`,
 		`"serverNames"`,
 		`"apple.com"`,
 		`"shortIds"`,
@@ -82,8 +82,6 @@ func testInbound() runtimeconfig.ProxyInbound {
 		ID:                     7,
 		Name:                   "main",
 		Template:               "vless-xhttp",
-		PublicHTTPSPort:        443,
-		ManagedHTTPSAddr:       "127.0.0.1:30443",
 		Protocol:               "vless",
 		Domain:                 "proxy.example.com",
 		ListenAddr:             "127.0.0.1",

@@ -41,9 +41,10 @@ type Status struct {
 	Nginx                    any        `json:"nginx"`
 	Xray                     any        `json:"xray"`
 	GoInternalAddr           string     `json:"goInternalAddr"`
-	NginxPorts               []int      `json:"nginxPorts"`
+	NginxPublicHTTPPort      int        `json:"nginxPublicHttpPort"`
+	NginxPublicHTTPSPort     int        `json:"nginxPublicHttpsPort"`
 	NginxManagedHTTPSAddr    string     `json:"nginxManagedHttpsAddr"`
-	XrayPublicHTTPSPort      int        `json:"xrayPublicHttpsPort"`
+	XrayInboundListen        string     `json:"xrayInboundListen"`
 	DomainCount              int64      `json:"domainCount"`
 	CertificateCount         int64      `json:"certificateCount"`
 	ReverseProxyCount        int64      `json:"reverseProxyCount"`
@@ -64,9 +65,9 @@ func (s *Service) Status() (Status, error) {
 	status.Nginx = s.Nginx.Status()
 	status.Xray = s.Xray.Status()
 	status.GoInternalAddr = s.Cfg.Server.InternalAddr
-	status.NginxPorts = []int{s.Cfg.Server.PublicHTTPPort}
+	status.NginxPublicHTTPPort = s.Cfg.Server.PublicHTTPPort
+	status.NginxPublicHTTPSPort = s.Cfg.Server.PublicHTTPSPort
 	status.NginxManagedHTTPSAddr = s.Cfg.Server.ManagedHTTPSAddr
-	status.XrayPublicHTTPSPort = s.Cfg.Server.PublicHTTPSPort
 	if err := s.DB.Model(&models.Domain{}).Where("status=?", "enabled").Count(&status.DomainCount).Error; err != nil {
 		return status, err
 	}
@@ -78,6 +79,10 @@ func (s *Service) Status() (Status, error) {
 	}
 	if err := s.DB.Model(&models.ProxyInbound{}).Where("enabled=?", true).Count(&status.InboundCount).Error; err != nil {
 		return status, err
+	}
+	var inbound models.ProxyInbound
+	if err := s.DB.Where("enabled = ?", true).Order("id asc").First(&inbound).Error; err == nil {
+		status.XrayInboundListen = fmt.Sprintf("%s:%d", inbound.ListenAddr, inbound.ListenPort)
 	}
 	if err := s.DB.Model(&models.Certificate{}).Where("expires_at <= ?", time.Now().Add(30*24*time.Hour)).Count(&status.ExpiringCertificateCount).Error; err != nil {
 		return status, err
@@ -93,11 +98,11 @@ func (s *Service) Status() (Status, error) {
 }
 
 func (s *Service) Apply(ctx context.Context) error {
-	if err := s.Nginx.Apply(ctx); err != nil {
+	if err := s.Xray.Apply(ctx); err != nil {
 		s.saveApply("failed")
 		return err
 	}
-	if err := s.Xray.Apply(ctx); err != nil {
+	if err := s.Nginx.Apply(ctx); err != nil {
 		s.saveApply("failed")
 		return err
 	}

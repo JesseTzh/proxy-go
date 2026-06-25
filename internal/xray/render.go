@@ -57,14 +57,14 @@ func renderVLESSXHTTP(in runtimeconfig.ProxyInbound) map[string]any {
 		"security": "reality",
 		"realitySettings": map[string]any{
 			"show":        false,
-			"dest":        realityDest(in),
+			"target":      realityTarget(in),
 			"serverNames": []any{realityServerName(in)},
 			"privateKey":  in.RealityPrivateKey,
 			"shortIds":    []any{in.RealityShortID},
 			"maxTimeDiff": in.RealityMaxTimeDiff,
 		},
 	}
-	return baseVLESSInbound(publicInbound(in), stream)
+	return baseVLESSInbound(in, stream)
 }
 
 func baseVLESSInbound(in runtimeconfig.ProxyInbound, streamSettings map[string]any) map[string]any {
@@ -88,18 +88,7 @@ func baseVLESSInbound(in runtimeconfig.ProxyInbound, streamSettings map[string]a
 	}
 }
 
-func publicInbound(in runtimeconfig.ProxyInbound) runtimeconfig.ProxyInbound {
-	in.ListenAddr = "0.0.0.0"
-	if in.PublicHTTPSPort != 0 {
-		in.ListenPort = in.PublicHTTPSPort
-	}
-	return in
-}
-
-func realityDest(in runtimeconfig.ProxyInbound) string {
-	if in.ManagedHTTPSAddr != "" {
-		return in.ManagedHTTPSAddr
-	}
+func realityTarget(in runtimeconfig.ProxyInbound) string {
 	return fmt.Sprintf("%s:%d", realityServerName(in), realityHandshakePort(in))
 }
 

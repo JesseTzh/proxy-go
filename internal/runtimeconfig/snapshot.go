@@ -49,8 +49,6 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 			ID:                     inbound.ID,
 			Name:                   inbound.Name,
 			Template:               inbound.Template,
-			PublicHTTPSPort:        snapshot.PublicHTTPSPort,
-			ManagedHTTPSAddr:       snapshot.ManagedHTTPSAddr,
 			Protocol:               inbound.Protocol,
 			Domain:                 inbound.Domain.Domain,
 			ListenAddr:             inbound.ListenAddr,

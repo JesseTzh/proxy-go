@@ -140,14 +140,14 @@ export function VlessPage() {
   return (
     <div className="space-y-4" data-testid="inbounds-page">
       <div className="flex flex-wrap items-start justify-between gap-3" data-testid="inbounds-toolbar">
-        <PageHeader title="代理入口" desc="管理 Xray VLESS XHTTP REALITY 公网入口。" data-testid="inbounds-header" />
+        <PageHeader title="代理入口" desc="管理经 Nginx SNI 分流进入 Xray 的 VLESS XHTTP REALITY 入站。" data-testid="inbounds-header" />
         <Button onClick={openCreate} data-testid="inbound-create-button">
           <Plus size={16} aria-hidden="true" />
           新增入口
         </Button>
       </div>
 
-      <DataTable headers={['名称', '客户端域名', '公网入口', 'XHTTP 路径', '状态', '操作']} data-testid="inbounds-table">
+      <DataTable headers={['名称', '客户端域名', '分流入口', 'XHTTP 路径', '状态', '操作']} data-testid="inbounds-table">
         {items.map(item => (
           <TableRow key={item.id} data-testid={`inbound-row-${item.id}`}>
             <TableCell>{item.name}</TableCell>
@@ -272,7 +272,7 @@ function InboundDialog({
             className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
             data-testid="inbound-public-entry-note"
           >
-            当前仅支持使用 443 端口作为公网入口
+            公网 443 由 Nginx stream 统一监听；匹配 REALITY SNI 的流量转发到本机 Xray 入站。
           </div>
 
           <section className="grid gap-3" data-testid="inbound-basic-section">
@@ -289,7 +289,7 @@ function InboundDialog({
             <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-entry-section-fields">
               <FormField
                 label="客户端连接域名"
-                description="客户端实际连接的域名，仅用于生成分享链接的 Host；不会作为 REALITY serverName/sni。"
+                description="客户端实际连接的域名，仅用于生成分享链接的 Host；普通 HTTPS 会按该域名进入内部 Nginx。"
                 error={errors.domainId?.message}
                 data-testid="inbound-domain-field"
               >
@@ -318,7 +318,7 @@ function InboundDialog({
             <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-reality-section-fields">
               <FormField
                 label="REALITY 握手服务器"
-                description="REALITY 客户端使用的伪装 SNI，会写入分享链接 sni 和 Xray serverNames，例如 apple.com。普通 HTTPS 固定回落到内部 Nginx。"
+                description="REALITY 客户端使用的伪装 SNI，会写入分享链接 sni、Nginx stream 分流规则和 Xray serverNames，例如 apple.com。不要填写已托管域名。"
                 error={errors.realityHandshakeServer?.message}
                 data-testid="inbound-handshake-server-field"
               >
@@ -356,7 +356,7 @@ function valuesFromItem(item: ProxyInbound): InboundFormValues {
 }
 
 function formatInboundListen(_item: ProxyInbound) {
-  return '0.0.0.0:443'
+  return '0.0.0.0:443 -> 127.0.0.1:31001'
 }
 
 function domainNameForValue(domains: { id: number; domain: string }[], value: unknown, fallback: string) {

@@ -22,6 +22,11 @@ type Service struct {
 	generator xray.CredentialGenerator
 }
 
+const (
+	defaultListenAddr = "127.0.0.1"
+	defaultListenPort = 31001
+)
+
 type CreateRequest struct {
 	Name                   string `json:"name"`
 	DomainID               uint   `json:"domainId"`
@@ -56,6 +61,9 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (models.ProxyIn
 	if err := validate(&item); err != nil {
 		return item, err
 	}
+	if err := s.validateStreamSNI(&item); err != nil {
+		return item, err
+	}
 	if err := s.validatePublicRealityUniqueness(&item); err != nil {
 		return item, err
 	}
@@ -84,6 +92,9 @@ func (s *Service) Update(ctx context.Context, id uint, req CreateRequest) (model
 		}
 	}
 	if err := validate(&item); err != nil {
+		return item, err
+	}
+	if err := s.validateStreamSNI(&item); err != nil {
 		return item, err
 	}
 	if err := s.validatePublicRealityUniqueness(&item); err != nil {
@@ -169,10 +180,8 @@ func applyDefaults(item *models.ProxyInbound) error {
 		item.Name = "VLESS XHTTP Reality"
 	}
 	item.Protocol = "vless"
-	item.ListenAddr = "0.0.0.0"
-	if item.ListenPort == 0 {
-		item.ListenPort = 443
-	}
+	item.ListenAddr = defaultListenAddr
+	item.ListenPort = defaultListenPort
 	if item.RealityMaxTimeDiff == 0 {
 		item.RealityMaxTimeDiff = 60
 	}
@@ -188,7 +197,7 @@ func applyDefaults(item *models.ProxyInbound) error {
 	if item.XHTTPMode == "" {
 		item.XHTTPMode = "auto"
 	}
-	item.RealityHandshakeServer = strings.TrimSpace(item.RealityHandshakeServer)
+	item.RealityHandshakeServer = normalizeDNSName(item.RealityHandshakeServer)
 	return nil
 }
 
@@ -196,17 +205,66 @@ func validate(item *models.ProxyInbound) error {
 	if item.DomainID == 0 {
 		return errors.New("domainId required")
 	}
-	if item.ListenAddr != "0.0.0.0" {
-		return errors.New("listenAddr must be 0.0.0.0")
+	if item.ListenAddr != defaultListenAddr {
+		return fmt.Errorf("listenAddr must be %s", defaultListenAddr)
 	}
-	if item.ListenPort <= 0 {
-		return errors.New("listenPort required")
+	if item.ListenPort != defaultListenPort {
+		return fmt.Errorf("listenPort must be %d", defaultListenPort)
 	}
 	if item.Security == "reality" && item.RealityHandshakeServer == "" {
 		return errors.New("realityHandshakeServer required")
 	}
+	if item.Security == "reality" && !isDNSName(item.RealityHandshakeServer) {
+		return errors.New("realityHandshakeServer must be a valid domain name")
+	}
 	if item.Security == "reality" && item.RealityHandshakePort != 443 {
 		return errors.New("realityHandshakePort must be 443")
+	}
+	return nil
+}
+
+func isDNSName(name string) bool {
+	name = normalizeDNSName(name)
+	if len(name) == 0 || len(name) > 253 || !strings.Contains(name, ".") {
+		return false
+	}
+	labels := strings.Split(name, ".")
+	for _, label := range labels {
+		if len(label) == 0 || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
+			return false
+		}
+		for _, r := range label {
+			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+				continue
+			}
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeDNSName(name string) string {
+	return strings.TrimSuffix(strings.ToLower(strings.TrimSpace(name)), ".")
+}
+
+func (s *Service) validateStreamSNI(item *models.ProxyInbound) error {
+	if item.Security != "reality" || item.RealityHandshakeServer == "" {
+		return nil
+	}
+	handshakeServer := normalizeDNSName(item.RealityHandshakeServer)
+	var count int64
+	if err := s.db.Model(&models.Domain{}).Where("lower(domain) = ?", handshakeServer).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("realityHandshakeServer must not be a managed domain")
+	}
+	var setting models.SystemSetting
+	if err := s.db.First(&setting, 1).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+	if normalizeDNSName(setting.ManagementDomain) == handshakeServer {
+		return errors.New("realityHandshakeServer must not be the management domain")
 	}
 	return nil
 }
@@ -231,18 +289,10 @@ func (s *Service) validatePublicRealityUniqueness(item *models.ProxyInbound) err
 }
 
 func (s *Service) toRuntimeInbound(item models.ProxyInbound) runtimeconfig.ProxyInbound {
-	publicHTTPSPort := 0
-	managedHTTPSAddr := ""
-	if s.cfg != nil {
-		publicHTTPSPort = s.cfg.Server.PublicHTTPSPort
-		managedHTTPSAddr = s.cfg.Server.ManagedHTTPSAddr
-	}
 	return runtimeconfig.ProxyInbound{
 		ID:                     item.ID,
 		Name:                   item.Name,
 		Template:               item.Template,
-		PublicHTTPSPort:        publicHTTPSPort,
-		ManagedHTTPSAddr:       managedHTTPSAddr,
 		Protocol:               item.Protocol,
 		Domain:                 item.Domain.Domain,
 		ListenAddr:             item.ListenAddr,

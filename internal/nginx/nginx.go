@@ -197,6 +197,21 @@ error_log {{.ErrorLog}} warn;
 
 events { worker_connections 4096; }
 
+stream {
+    map $ssl_preread_server_name $proxy_go_stream_backend {
+        {{ range $inbound := .Inbounds }}
+        {{ $inbound.RealityHandshakeServer }} {{ $inbound.ListenAddr }}:{{ $inbound.ListenPort }};
+        {{ end }}
+        default {{.ManagedHTTPSAddr}};
+    }
+
+    server {
+        listen {{.HTTPSPort}};
+        proxy_pass $proxy_go_stream_backend;
+        ssl_preread on;
+    }
+}
+
 http {
     include       mime.types;
     default_type  application/octet-stream;
