@@ -24,23 +24,15 @@ type Service struct {
 
 type CreateRequest struct {
 	Name                   string `json:"name"`
-	Template               string `json:"template"`
 	DomainID               uint   `json:"domainId"`
-	ListenPort             int    `json:"listenPort"`
 	XHTTPPath              string `json:"xhttpPath"`
-	XHTTPMode              string `json:"xhttpMode"`
-	Security               string `json:"security"`
 	RealityHandshakeServer string `json:"realityHandshakeServer"`
-	RealityHandshakePort   int    `json:"realityHandshakePort"`
-	RealityMaxTimeDiff     int    `json:"realityMaxTimeDiff"`
-	Enabled                bool   `json:"enabled"`
 }
 
 type ShareDetails struct {
-	Name     string `json:"name"`
-	Domain   string `json:"domain"`
-	Template string `json:"template"`
-	URI      string `json:"uri"`
+	Name   string `json:"name"`
+	Domain string `json:"domain"`
+	URI    string `json:"uri"`
 }
 
 func New(db *gorm.DB, cfg *config.Config, generator xray.CredentialGenerator) *Service {
@@ -50,16 +42,10 @@ func New(db *gorm.DB, cfg *config.Config, generator xray.CredentialGenerator) *S
 func (s *Service) Create(ctx context.Context, req CreateRequest) (models.ProxyInbound, error) {
 	item := models.ProxyInbound{
 		Name:                   req.Name,
-		Template:               req.Template,
 		DomainID:               req.DomainID,
-		ListenPort:             req.ListenPort,
 		XHTTPPath:              req.XHTTPPath,
-		XHTTPMode:              req.XHTTPMode,
-		Security:               req.Security,
 		RealityHandshakeServer: req.RealityHandshakeServer,
-		RealityHandshakePort:   req.RealityHandshakePort,
-		RealityMaxTimeDiff:     req.RealityMaxTimeDiff,
-		Enabled:                req.Enabled,
+		Enabled:                true,
 	}
 	if err := applyDefaults(&item); err != nil {
 		return item, err
@@ -86,16 +72,9 @@ func (s *Service) Update(ctx context.Context, id uint, req CreateRequest) (model
 		return item, err
 	}
 	item.Name = req.Name
-	item.Template = req.Template
 	item.DomainID = req.DomainID
-	item.ListenPort = req.ListenPort
 	item.XHTTPPath = req.XHTTPPath
-	item.XHTTPMode = req.XHTTPMode
-	item.Security = req.Security
 	item.RealityHandshakeServer = req.RealityHandshakeServer
-	item.RealityHandshakePort = req.RealityHandshakePort
-	item.RealityMaxTimeDiff = req.RealityMaxTimeDiff
-	item.Enabled = req.Enabled
 	if err := applyDefaults(&item); err != nil {
 		return item, err
 	}
@@ -153,10 +132,9 @@ func (s *Service) ShareDetails(id uint) (ShareDetails, error) {
 		return ShareDetails{}, err
 	}
 	return ShareDetails{
-		Name:     item.Name,
-		Domain:   item.Domain.Domain,
-		Template: item.Template,
-		URI:      uri,
+		Name:   item.Name,
+		Domain: item.Domain.Domain,
+		URI:    uri,
 	}, nil
 }
 
@@ -226,6 +204,9 @@ func validate(item *models.ProxyInbound) error {
 	}
 	if item.Security == "reality" && item.RealityHandshakeServer == "" {
 		return errors.New("realityHandshakeServer required")
+	}
+	if item.Security == "reality" && item.RealityHandshakePort != 443 {
+		return errors.New("realityHandshakePort must be 443")
 	}
 	return nil
 }

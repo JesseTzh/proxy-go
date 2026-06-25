@@ -8,11 +8,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/proxy-go/proxy-go/internal/httpapi/response"
+	"github.com/proxy-go/proxy-go/internal/models"
 	"github.com/proxy-go/proxy-go/internal/security"
 	inboundsvc "github.com/proxy-go/proxy-go/internal/services/inbounds"
 	"github.com/proxy-go/proxy-go/internal/xray"
 	"gorm.io/gorm"
 )
+
+type inboundResponse struct {
+	ID                     uint          `json:"id"`
+	Name                   string        `json:"name"`
+	DomainID               uint          `json:"domainId"`
+	Domain                 models.Domain `json:"domain"`
+	XHTTPPath              string        `json:"xhttpPath"`
+	RealityHandshakeServer string        `json:"realityHandshakeServer"`
+	Enabled                bool          `json:"enabled"`
+}
 
 func ListInbounds(d Deps) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -21,7 +32,7 @@ func ListInbounds(d Deps) gin.HandlerFunc {
 			response.Error(c, 500, err.Error())
 			return
 		}
-		response.JSON(c, 200, items)
+		response.JSON(c, 200, inboundResponses(items))
 	}
 }
 
@@ -40,7 +51,7 @@ func CreateInbound(d Deps) gin.HandlerFunc {
 			return
 		}
 		d.Audit.Record("create_inbound", "inbound", fmt.Sprint(item.ID), item, security.NormalizeIP(c.Request.RemoteAddr), c.Request.UserAgent())
-		response.JSON(c, 200, item)
+		response.JSON(c, 200, toInboundResponse(item))
 	}
 }
 
@@ -60,7 +71,7 @@ func GetInbound(d Deps) gin.HandlerFunc {
 			response.Error(c, 500, err.Error())
 			return
 		}
-		response.JSON(c, 200, item)
+		response.JSON(c, 200, toInboundResponse(item))
 	}
 }
 
@@ -87,7 +98,7 @@ func UpdateInbound(d Deps) gin.HandlerFunc {
 			response.Error(c, 400, err.Error())
 			return
 		}
-		response.JSON(c, 200, item)
+		response.JSON(c, 200, toInboundResponse(item))
 	}
 }
 
@@ -163,4 +174,24 @@ func InboundShare(d Deps) gin.HandlerFunc {
 
 func inboundService(d Deps) *inboundsvc.Service {
 	return inboundsvc.New(d.DB, d.Cfg, xray.CLICredentialGenerator{Binary: d.Cfg.Runtime.XrayBinary})
+}
+
+func inboundResponses(items []models.ProxyInbound) []inboundResponse {
+	out := make([]inboundResponse, 0, len(items))
+	for _, item := range items {
+		out = append(out, toInboundResponse(item))
+	}
+	return out
+}
+
+func toInboundResponse(item models.ProxyInbound) inboundResponse {
+	return inboundResponse{
+		ID:                     item.ID,
+		Name:                   item.Name,
+		DomainID:               item.DomainID,
+		Domain:                 item.Domain,
+		XHTTPPath:              item.XHTTPPath,
+		RealityHandshakeServer: item.RealityHandshakeServer,
+		Enabled:                item.Enabled,
+	}
 }

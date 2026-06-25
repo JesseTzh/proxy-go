@@ -1,8 +1,8 @@
 export type Certificate = { id: number; primaryDomain: string; status: string; expiresAt?: string; errorMessage?: string; autoRenew: boolean }
 export type Domain = { id: number; domain: string; status: string; remark: string; certificateId?: number; certificate?: Certificate; createdAt: string }
 export type ReverseProxy = { id: number; domainId: number; domain?: Domain; targetScheme: string; targetHost: string; targetPort: number; preserveHost: boolean; webSocket: boolean; passRealIp: boolean; enabled: boolean; remark: string }
-export type ProxyInbound = { id: number; name: string; template: 'vless-xhttp'; protocol: string; domainId: number; domain?: Domain; listenAddr: string; listenPort: number; network: string; security: string; flow: string; xhttpPath: string; xhttpMode: string; realityHandshakeServer: string; realityHandshakePort: number; realityMaxTimeDiff: number; enabled: boolean }
-export type InboundShare = { name: string; domain: string; template: ProxyInbound['template']; uri: string }
+export type ProxyInbound = { id: number; name: string; domainId: number; domain?: Domain; xhttpPath: string; realityHandshakeServer: string; enabled: boolean }
+export type InboundShare = { name: string; domain: string; uri: string }
 export type ProcessStatus = { name?: string; path?: string; running: boolean; startedAt?: string; lastError?: string }
 export type RuntimeStatus = { proxyGo: {running:boolean}; nginx: ProcessStatus; xray: ProcessStatus; goInternalAddr: string; nginxPorts: number[]; nginxManagedHttpsAddr: string; xrayPublicHttpsPort: number; domainCount: number; certificateCount: number; reverseProxyCount: number; inboundCount: number; expiringCertificateCount: number }
 export type RuntimeLogSummary = { logs: string[] }

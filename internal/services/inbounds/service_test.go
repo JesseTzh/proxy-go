@@ -21,8 +21,6 @@ func TestCreateVLESSXHTTPRealityGeneratesHiddenSecrets(t *testing.T) {
 		Name:                   "main",
 		DomainID:               1,
 		RealityHandshakeServer: "apple.com",
-		RealityHandshakePort:   443,
-		Enabled:                true,
 	})
 	if err != nil {
 		t.Fatalf("create inbound: %v", err)
@@ -42,23 +40,6 @@ func TestCreateVLESSXHTTPRealityGeneratesHiddenSecrets(t *testing.T) {
 	}
 }
 
-func TestCreateRejectsRealityVisionTemplate(t *testing.T) {
-	db := testutil.NewDB(t)
-	cfg := testutil.NewConfig(t)
-	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
-	svc := New(db, cfg, fakeGenerator())
-
-	_, err := svc.Create(context.Background(), CreateRequest{
-		Name:     "legacy",
-		Template: "vless-reality-vision",
-		DomainID: 1,
-		Enabled:  true,
-	})
-	if err == nil || !strings.Contains(err.Error(), "only vless-xhttp is supported") {
-		t.Fatalf("expected unsupported template error, got %v", err)
-	}
-}
-
 func TestCreateRequiresRealityHandshakeServer(t *testing.T) {
 	db := testutil.NewDB(t)
 	cfg := testutil.NewConfig(t)
@@ -68,10 +49,29 @@ func TestCreateRequiresRealityHandshakeServer(t *testing.T) {
 	_, err := svc.Create(context.Background(), CreateRequest{
 		Name:     "main",
 		DomainID: 1,
-		Enabled:  true,
 	})
 	if err == nil || !strings.Contains(err.Error(), "realityHandshakeServer required") {
 		t.Fatalf("expected missing handshake server error, got %v", err)
+	}
+}
+
+func TestCreateWithMinimalRequestAppliesHiddenDefaults(t *testing.T) {
+	db := testutil.NewDB(t)
+	cfg := testutil.NewConfig(t)
+	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
+	svc := New(db, cfg, fakeGenerator())
+
+	item, err := svc.Create(context.Background(), CreateRequest{
+		Name:                   "main",
+		DomainID:               1,
+		XHTTPPath:              "/xhttp",
+		RealityHandshakeServer: "apple.com",
+	})
+	if err != nil {
+		t.Fatalf("create inbound: %v", err)
+	}
+	if !item.Enabled || item.XHTTPMode != "auto" || item.RealityMaxTimeDiff != 60 || item.RealityHandshakePort != 443 {
+		t.Fatalf("unexpected hidden defaults: %#v", item)
 	}
 }
 
@@ -84,7 +84,6 @@ func TestConfigDetailsReturnsRenderedInboundJSON(t *testing.T) {
 		Name:                   "main",
 		DomainID:               1,
 		RealityHandshakeServer: "apple.com",
-		Enabled:                true,
 	})
 	if err != nil {
 		t.Fatalf("create inbound: %v", err)
@@ -110,7 +109,6 @@ func TestShareDetailsBuildsVLESSXHTTPURI(t *testing.T) {
 		Name:                   "xhttp",
 		DomainID:               1,
 		RealityHandshakeServer: "apple.com",
-		Enabled:                true,
 	})
 	if err != nil {
 		t.Fatalf("create inbound: %v", err)

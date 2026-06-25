@@ -8,7 +8,6 @@ import { FormField } from '../components/FormField'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -22,14 +21,9 @@ const JsonView = lazy(() => import('@uiw/react-json-view'))
 
 const defaults: InboundFormValues = {
   name: 'VLESS XHTTP Reality',
-  template: 'vless-xhttp',
   domainId: 1,
   xhttpPath: '/xhttp',
-  xhttpMode: 'auto',
   realityHandshakeServer: 'apple.com',
-  realityHandshakePort: 443,
-  realityMaxTimeDiff: 60,
-  enabled: true,
 }
 
 export function VlessPage() {
@@ -273,78 +267,74 @@ function InboundDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
-        <form className="grid gap-4" onSubmit={handleSubmit(onSubmit)} data-testid="inbound-form">
-          <div className="grid gap-4 md:grid-cols-2">
-            <FormField label="名称" error={errors.name?.message} data-testid="inbound-name-field">
-              <Input {...register('name')} data-testid="inbound-name-input" />
-            </FormField>
-            <FormField
-              label="客户端连接域名"
-              description="客户端实际连接的域名，仅用于生成分享链接的 Host；不会作为 REALITY serverName/sni。"
-              error={errors.domainId?.message}
-              data-testid="inbound-domain-field"
-            >
-              <Controller
-                control={control}
-                name="domainId"
-                render={({ field }) => (
-                  <Select value={String(field.value)} onValueChange={(value) => field.onChange(Number(value))}>
-                    <SelectTrigger className="w-full" data-testid="inbound-domain-select">
-                      <SelectValue placeholder="选择域名…">
-                        {value => domainNameForValue(domains, value, '选择域名…')}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {domains.map(domain => <SelectItem key={domain.id} value={String(domain.id)} label={domain.domain}>{domain.domain}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </FormField>
-            <FormField
-              label="公网入口"
-              description="Xray 直接监听公网 HTTPS 端口 443；Nginx 不再转发 XHTTP 流量。"
-              data-testid="inbound-public-entry-field"
-            >
-              <Input value="0.0.0.0:443" readOnly data-testid="inbound-public-entry-input" />
-            </FormField>
-            <FormField label="XHTTP 路径" error={errors.xhttpPath?.message} data-testid="inbound-xhttp-path-field">
-              <Input {...register('xhttpPath')} data-testid="inbound-xhttp-path-input" />
-            </FormField>
-            <FormField label="XHTTP 模式" error={errors.xhttpMode?.message} data-testid="inbound-xhttp-mode-field">
-              <Input {...register('xhttpMode')} data-testid="inbound-xhttp-mode-input" />
-            </FormField>
-            <FormField
-              label="REALITY 握手服务器"
-              description="REALITY 客户端使用的伪装 SNI，会写入分享链接 sni 和 Xray serverNames，例如 apple.com。普通 HTTPS 固定回落到内部 Nginx。"
-              error={errors.realityHandshakeServer?.message}
-              data-testid="inbound-handshake-server-field"
-            >
-              <Input {...register('realityHandshakeServer')} data-testid="inbound-handshake-server-input" />
-            </FormField>
-            <FormField
-              label="REALITY 握手端口"
-              description="REALITY 伪装握手服务器的端口，通常是 443。"
-              error={errors.realityHandshakePort?.message}
-              data-testid="inbound-handshake-port-field"
-            >
-              <Input type="number" {...register('realityHandshakePort')} data-testid="inbound-handshake-port-input" />
-            </FormField>
-            <FormField label="最大时间差" error={errors.realityMaxTimeDiff?.message} data-testid="inbound-max-time-diff-field">
-              <Input type="number" {...register('realityMaxTimeDiff')} data-testid="inbound-max-time-diff-input" />
-            </FormField>
+        <form className="grid gap-5" onSubmit={handleSubmit(onSubmit)} data-testid="inbound-form">
+          <div
+            className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+            data-testid="inbound-public-entry-note"
+          >
+            当前仅支持使用 443 端口作为公网入口
           </div>
 
-          <label className="inline-flex items-center gap-2 text-sm text-neutral-700" data-testid="inbound-enabled-field">
-            <Controller
-              control={control}
-              name="enabled"
-              render={({ field }) => (
-                <Checkbox checked={field.value} onCheckedChange={field.onChange} data-testid="inbound-enabled-checkbox" />
-              )}
-            />
-            启用入口
-          </label>
+          <section className="grid gap-3" data-testid="inbound-basic-section">
+            <h3 className="text-sm font-medium text-neutral-900" data-testid="inbound-basic-section-title">基础信息</h3>
+            <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-basic-section-fields">
+              <FormField label="名称" error={errors.name?.message} data-testid="inbound-name-field">
+                <Input {...register('name')} data-testid="inbound-name-input" />
+              </FormField>
+            </div>
+          </section>
+
+          <section className="grid gap-3" data-testid="inbound-entry-section">
+            <h3 className="text-sm font-medium text-neutral-900" data-testid="inbound-entry-section-title">连接入口</h3>
+            <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-entry-section-fields">
+              <FormField
+                label="客户端连接域名"
+                description="客户端实际连接的域名，仅用于生成分享链接的 Host；不会作为 REALITY serverName/sni。"
+                error={errors.domainId?.message}
+                data-testid="inbound-domain-field"
+              >
+                <Controller
+                  control={control}
+                  name="domainId"
+                  render={({ field }) => (
+                    <Select value={String(field.value)} onValueChange={(value) => field.onChange(Number(value))}>
+                      <SelectTrigger className="w-full" data-testid="inbound-domain-select">
+                        <SelectValue placeholder="选择域名…">
+                          {value => domainNameForValue(domains, value, '选择域名…')}
+                        </SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {domains.map(domain => <SelectItem key={domain.id} value={String(domain.id)} label={domain.domain}>{domain.domain}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </FormField>
+            </div>
+          </section>
+
+          <section className="grid gap-3" data-testid="inbound-reality-section">
+            <h3 className="text-sm font-medium text-neutral-900" data-testid="inbound-reality-section-title">REALITY</h3>
+            <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-reality-section-fields">
+              <FormField
+                label="REALITY 握手服务器"
+                description="REALITY 客户端使用的伪装 SNI，会写入分享链接 sni 和 Xray serverNames，例如 apple.com。普通 HTTPS 固定回落到内部 Nginx。"
+                error={errors.realityHandshakeServer?.message}
+                data-testid="inbound-handshake-server-field"
+              >
+                <Input {...register('realityHandshakeServer')} data-testid="inbound-handshake-server-input" />
+              </FormField>
+            </div>
+          </section>
+
+          <section className="grid gap-3" data-testid="inbound-xhttp-section">
+            <h3 className="text-sm font-medium text-neutral-900" data-testid="inbound-xhttp-section-title">XHTTP</h3>
+            <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-xhttp-section-fields">
+              <FormField label="XHTTP 路径" error={errors.xhttpPath?.message} data-testid="inbound-xhttp-path-field">
+                <Input {...register('xhttpPath')} data-testid="inbound-xhttp-path-input" />
+              </FormField>
+            </div>
+          </section>
 
           <DialogFooter>
             <Button variant="outline" type="button" onClick={onClose} data-testid="inbound-cancel-button">取消</Button>
@@ -359,14 +349,9 @@ function InboundDialog({
 function valuesFromItem(item: ProxyInbound): InboundFormValues {
   return {
     name: item.name,
-    template: 'vless-xhttp',
     domainId: item.domainId,
     xhttpPath: item.xhttpPath || '/xhttp',
-    xhttpMode: item.xhttpMode || 'auto',
     realityHandshakeServer: item.realityHandshakeServer || 'apple.com',
-    realityHandshakePort: item.realityHandshakePort || 443,
-    realityMaxTimeDiff: item.realityMaxTimeDiff || 60,
-    enabled: item.enabled,
   }
 }
 
