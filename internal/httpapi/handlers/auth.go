@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/proxy-go/proxy-go/internal/httpapi/response"
 	"github.com/proxy-go/proxy-go/internal/models"
 	"github.com/proxy-go/proxy-go/internal/security"
 )
@@ -20,7 +21,7 @@ func ACMEChallenge(d Deps) gin.HandlerFunc {
 }
 
 func Me() gin.HandlerFunc {
-	return func(c *gin.Context) { c.JSON(200, gin.H{"authenticated": true}) }
+	return func(c *gin.Context) { response.JSON(c, 200, gin.H{"authenticated": true}) }
 }
 
 func Login(d Deps) gin.HandlerFunc {
@@ -29,28 +30,28 @@ func Login(d Deps) gin.HandlerFunc {
 			Password string `json:"password" validate:"required"`
 		}
 		if err := c.BindJSON(&req); err != nil || d.Validator.Struct(req) != nil {
-			c.JSON(400, gin.H{"error": "password required"})
+			response.Error(c, 400, "password required")
 			return
 		}
 		ip := security.NormalizeIP(c.Request.RemoteAddr)
 		if !d.Limiter.Allow(ip) {
-			c.JSON(429, gin.H{"error": "too many login failures"})
+			response.Error(c, 429, "too many login failures")
 			return
 		}
 		var authCfg models.AuthConfig
 		if err := d.DB.First(&authCfg, 1).Error; err != nil {
-			c.JSON(500, gin.H{"error": "auth not initialized"})
+			response.Error(c, 500, "auth not initialized")
 			return
 		}
 		if !security.CheckPassword(authCfg.PasswordHash, req.Password) {
 			d.Limiter.Fail(ip)
 			d.Audit.Record("login_failed", "auth", "", gin.H{"reason": "invalid_password"}, ip, c.Request.UserAgent())
-			c.JSON(401, gin.H{"error": "invalid password"})
+			response.Error(c, 401, "invalid password")
 			return
 		}
 		token, err := security.NewToken()
 		if err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
+			response.Error(c, 500, err.Error())
 			return
 		}
 		ttl := time.Duration(d.Cfg.Security.SessionTTLHours) * time.Hour
@@ -58,7 +59,7 @@ func Login(d Deps) gin.HandlerFunc {
 		d.Limiter.Success(ip)
 		http.SetCookie(c.Writer, &http.Cookie{Name: "proxy_go_session", Value: token, Path: "/", HttpOnly: true, Secure: d.Cfg.Server.CookieSecure, SameSite: http.SameSiteLaxMode, Expires: time.Now().Add(ttl)})
 		d.Audit.Record("login_success", "auth", "", nil, ip, c.Request.UserAgent())
-		c.JSON(200, gin.H{"ok": true})
+		response.OK(c)
 	}
 }
 
@@ -69,6 +70,6 @@ func Logout(d Deps) gin.HandlerFunc {
 		}
 		http.SetCookie(c.Writer, &http.Cookie{Name: "proxy_go_session", Value: "", Path: "/", MaxAge: -1, HttpOnly: true})
 		d.Audit.Record("logout", "auth", "", nil, security.NormalizeIP(c.Request.RemoteAddr), c.Request.UserAgent())
-		c.JSON(200, gin.H{"ok": true})
+		response.OK(c)
 	}
 }

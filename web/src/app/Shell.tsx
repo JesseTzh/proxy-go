@@ -1,5 +1,4 @@
 import React from 'react'
-import { Toaster } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { navItems, type Page } from './navigation'
 
@@ -24,7 +23,6 @@ export function Shell({page,setPage,children}:{page:Page; setPage:(p:Page)=>void
         </nav>
       </aside>
       <main className="min-w-0 flex-1 overflow-auto p-4 md:p-6" data-testid="app-main">
-        <Toaster richColors />
         {children}
       </main>
     </div>

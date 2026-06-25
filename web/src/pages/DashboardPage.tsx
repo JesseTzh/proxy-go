@@ -43,7 +43,7 @@ export function DashboardPage() {
       await postJson(`runtime/${process}/${action}`)
       toast.success(`${process} ${actionLabels[action]}完成`)
     } catch {
-      toast.error(`${process} ${actionLabels[action]}失败`)
+      // global error dialog handles API failures
     } finally {
       setBusy(undefined)
       void load()
@@ -57,7 +57,7 @@ export function DashboardPage() {
       const result = await getJson<RuntimeLogSummary>('runtime/xray/logs')
       setXrayLogs(result.logs ?? [])
     } catch {
-      toast.error('读取 Xray 日志失败')
+      // global error dialog handles API failures
     } finally {
       setLogsLoading(false)
     }

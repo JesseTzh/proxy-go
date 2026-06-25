@@ -2,11 +2,16 @@ package handlers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/proxy-go/proxy-go/internal/httpapi/response"
 	"github.com/proxy-go/proxy-go/internal/models"
 )
 
 func Capabilities(d Deps) gin.HandlerFunc {
-	return func(c *gin.Context) { var items []models.ProtocolCapability; d.DB.Find(&items); c.JSON(200, items) }
+	return func(c *gin.Context) {
+		var items []models.ProtocolCapability
+		d.DB.Find(&items)
+		response.JSON(c, 200, items)
+	}
 }
 
 func AuditLogs(d Deps) gin.HandlerFunc {
@@ -20,6 +25,6 @@ func AuditLogs(d Deps) gin.HandlerFunc {
 			q = q.Where("resource_type=?", v)
 		}
 		q.Find(&items)
-		c.JSON(200, items)
+		response.JSON(c, 200, items)
 	}
 }

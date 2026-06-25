@@ -162,10 +162,26 @@ func (s *Service) Reload(ctx context.Context) error {
 	cmd := exec.CommandContext(cctx, s.Binary, "-s", "reload", "-c", configPath)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		if s.shouldStartAfterReloadFailure(string(out)) {
+			slog.Warn("nginx reload found invalid pid; starting managed process", "output", strings.TrimSpace(string(out)))
+			return s.Start(ctx)
+		}
 		return fmt.Errorf("nginx reload failed: %w: %s", err, string(out))
 	}
 	slog.Info("nginx reload completed", "elapsed", time.Since(started).String())
 	return nil
+}
+
+func (s *Service) shouldStartAfterReloadFailure(output string) bool {
+	if !strings.Contains(output, `invalid PID number ""`) {
+		return false
+	}
+	pidPath := filepath.Join(s.cfg.Paths.NginxConfDir, "nginx.pid")
+	b, err := os.ReadFile(pidPath)
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(string(b)) == ""
 }
 
 func safeName(s string) string {

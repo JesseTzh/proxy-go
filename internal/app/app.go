@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -25,6 +26,7 @@ import (
 	"github.com/proxy-go/proxy-go/internal/audit"
 	"github.com/proxy-go/proxy-go/internal/config"
 	"github.com/proxy-go/proxy-go/internal/database"
+	"github.com/proxy-go/proxy-go/internal/httpapi/response"
 	"github.com/proxy-go/proxy-go/internal/models"
 	"github.com/proxy-go/proxy-go/internal/nginx"
 	"github.com/proxy-go/proxy-go/internal/security"
@@ -128,6 +130,10 @@ func attachWeb(r *gin.Engine, webRoot string) {
 	r.StaticFS("/assets", http.Dir(filepath.Join(webRoot, "assets")))
 	r.StaticFS("/svg", http.Dir(filepath.Join(webRoot, "svg")))
 	r.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			response.Error(c, 404, "not found")
+			return
+		}
 		if c.Request.URL.Path == "/" || c.Request.Method == http.MethodGet {
 			b, err := os.ReadFile(filepath.Join(webRoot, "index.html"))
 			if err == nil {
@@ -135,7 +141,7 @@ func attachWeb(r *gin.Engine, webRoot string) {
 				return
 			}
 		}
-		c.JSON(404, gin.H{"error": "not found"})
+		response.Error(c, 404, "not found")
 	})
 }
 

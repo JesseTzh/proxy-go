@@ -41,6 +41,18 @@ func TestProtectedRoutesRequireAuth(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401, got %d", rec.Code)
 	}
+	var body struct {
+		OK    bool `json:"ok"`
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.OK || body.Error.Message != "unauthorized" {
+		t.Fatalf("unexpected response body: %s", rec.Body.String())
+	}
 }
 
 func TestCertificateRoutesAreScopedUnderDomains(t *testing.T) {
@@ -91,12 +103,14 @@ func TestXrayLogsRouteReturnsLogSummaryAndSingboxRouteIsGone(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 	var body struct {
-		Logs []string `json:"logs"`
+		Data struct {
+			Logs []string `json:"logs"`
+		} `json:"data"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.Logs == nil {
+	if body.Data.Logs == nil {
 		t.Fatalf("expected logs field to be present")
 	}
 }
@@ -192,13 +206,15 @@ func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 	var body struct {
-		URI string `json:"uri"`
+		Data struct {
+			URI string `json:"uri"`
+		} `json:"data"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&mode=auto&path=%2Fxhttp&pbk=public&security=reality&sid=abcd1234&sni=www.cloudflare.com&type=xhttp#main" {
-		t.Fatalf("unexpected uri: %s", body.URI)
+	if body.Data.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&mode=auto&path=%2Fxhttp&pbk=public&security=reality&sid=abcd1234&sni=www.cloudflare.com&type=xhttp#main" {
+		t.Fatalf("unexpected uri: %s", body.Data.URI)
 	}
 }
 

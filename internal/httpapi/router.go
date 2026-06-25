@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/proxy-go/proxy-go/internal/httpapi/handlers"
 	"github.com/proxy-go/proxy-go/internal/httpapi/middleware"
+	"github.com/proxy-go/proxy-go/internal/httpapi/response"
 )
 
 type Deps = handlers.Deps
@@ -11,6 +12,9 @@ type Deps = handlers.Deps
 func Router(d Deps) *gin.Engine {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
+	r.NoRoute(func(c *gin.Context) {
+		response.Error(c, 404, "not found")
+	})
 	r.GET("/.well-known/acme-challenge/:token", handlers.ACMEChallenge(d))
 
 	api := r.Group("/api")

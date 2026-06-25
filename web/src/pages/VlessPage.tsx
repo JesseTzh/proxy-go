@@ -87,7 +87,7 @@ export function VlessPage() {
       toast.success('操作完成')
       void load()
     } catch {
-      toast.error('操作失败')
+      // global error dialog handles API failures
     } finally {
       setBusy(undefined)
     }
@@ -102,7 +102,7 @@ export function VlessPage() {
       setConfigTitle(item.name)
       setConfigOpen(true)
     } catch {
-      toast.error('读取配置详情失败')
+      // global error dialog handles API failures
     } finally {
       setBusy(undefined)
     }

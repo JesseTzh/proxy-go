@@ -1,5 +1,4 @@
 import React, { useState } from 'react'
-import { Toaster, toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -8,7 +7,7 @@ import { postJson } from '../lib/api'
 export function LoginPage({onLogin}:{onLogin:()=>void}) {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  async function submit(e: React.FormEvent){ e.preventDefault(); setLoading(true); try { await postJson('auth/login', {password}); toast.success('登录成功'); onLogin() } catch { toast.error('密码错误或请求被限速') } finally { setLoading(false) } }
+  async function submit(e: React.FormEvent){ e.preventDefault(); setLoading(true); try { await postJson('auth/login', {password}, { loading: false }); onLogin() } catch { /* global error dialog handles feedback */ } finally { setLoading(false) } }
   return (
     <div className="min-h-screen grid place-items-center p-6" data-testid="login-page">
       <Card className="w-full max-w-sm p-6">
@@ -18,7 +17,6 @@ export function LoginPage({onLogin}:{onLogin:()=>void}) {
           <Button className="w-full" disabled={loading} type="submit" data-testid="login-submit-button">{loading ? '登录中…' : '登录'}</Button>
         </form>
       </Card>
-      <Toaster richColors />
     </div>
   )
 }

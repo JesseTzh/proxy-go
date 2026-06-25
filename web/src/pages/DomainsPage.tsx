@@ -62,7 +62,7 @@ export function DomainsPage() {
       }
       void load()
     } catch {
-      toast.error('操作失败')
+      // global error dialog handles API failures
     } finally {
       setBusy(undefined)
     }
