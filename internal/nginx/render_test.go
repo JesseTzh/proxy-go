@@ -21,12 +21,6 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 			}},
 			ProxyInbounds: []runtimeconfig.ProxyInbound{
 				{
-					Template:   "vless-reality-vision",
-					Domain:     "vless.example.com",
-					ListenAddr: "127.0.0.1",
-					ListenPort: 31001,
-				},
-				{
 					Template:   "vless-xhttp",
 					Domain:     "app.example.com",
 					ListenAddr: "127.0.0.1",
@@ -48,8 +42,6 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 		t.Fatalf("render nginx: %v", err)
 	}
 	for _, want := range []string{
-		"location ^~ /xhttp",
-		"proxy_pass http://127.0.0.1:31002;",
 		"proxy_pass http://127.0.0.1:30081;",
 		"ssl_certificate /certs/app.example.com/fullchain.pem;",
 		"listen 127.0.0.1:30443 ssl;",
@@ -60,6 +52,9 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 	}
 	if strings.Contains(out, "app.example.com 127.0.0.1:31002;") {
 		t.Fatalf("xhttp inbound should not be routed by stream SNI:\n%s", out)
+	}
+	if strings.Contains(out, "location ^~ /xhttp") || strings.Contains(out, "proxy_pass http://127.0.0.1:31002;") {
+		t.Fatalf("nginx should not route xhttp when xray owns the public https entrypoint:\n%s", out)
 	}
 	if strings.Contains(out, "ssl_preread") || strings.Contains(out, "listen 443 reuseport") {
 		t.Fatalf("nginx should not own the public HTTPS stream entrypoint:\n%s", out)

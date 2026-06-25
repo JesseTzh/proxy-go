@@ -181,43 +181,33 @@ func (s *Service) populateCredentials(ctx context.Context, item *models.ProxyInb
 
 func applyDefaults(item *models.ProxyInbound) error {
 	if item.Template == "" {
-		item.Template = "vless-reality-vision"
+		item.Template = "vless-xhttp"
+	}
+	if item.Template != "vless-xhttp" {
+		return fmt.Errorf("only vless-xhttp is supported")
 	}
 	if item.Name == "" {
-		item.Name = "VLESS Reality Vision"
+		item.Name = "VLESS XHTTP Reality"
 	}
 	item.Protocol = "vless"
-	item.ListenAddr = "127.0.0.1"
+	item.ListenAddr = "0.0.0.0"
+	if item.ListenPort == 0 {
+		item.ListenPort = 443
+	}
 	if item.RealityMaxTimeDiff == 0 {
 		item.RealityMaxTimeDiff = 60
 	}
 	if item.RealityHandshakePort == 0 {
 		item.RealityHandshakePort = 443
 	}
-	switch item.Template {
-	case "vless-reality-vision":
-		item.Network = "raw"
-		item.Security = "reality"
-		item.Flow = "xtls-rprx-vision"
-		item.XHTTPPath = ""
-		item.XHTTPMode = ""
-	case "vless-xhttp":
-		item.Network = "xhttp"
-		item.Flow = ""
-		if item.Security == "" {
-			item.Security = "reality"
-		}
-		if item.Security != "reality" && item.Security != "tls" {
-			return fmt.Errorf("unsupported xhttp security %q", item.Security)
-		}
-		if item.XHTTPPath == "" {
-			item.XHTTPPath = "/xhttp"
-		}
-		if item.XHTTPMode == "" {
-			item.XHTTPMode = "auto"
-		}
-	default:
-		return fmt.Errorf("unsupported inbound template %q", item.Template)
+	item.Network = "xhttp"
+	item.Security = "reality"
+	item.Flow = ""
+	if item.XHTTPPath == "" {
+		item.XHTTPPath = "/xhttp"
+	}
+	if item.XHTTPMode == "" {
+		item.XHTTPMode = "auto"
 	}
 	return nil
 }
@@ -226,8 +216,8 @@ func validate(item *models.ProxyInbound) error {
 	if item.DomainID == 0 {
 		return errors.New("domainId required")
 	}
-	if item.ListenAddr != "127.0.0.1" {
-		return errors.New("listenAddr must be 127.0.0.1")
+	if item.ListenAddr != "0.0.0.0" {
+		return errors.New("listenAddr must be 0.0.0.0")
 	}
 	if item.ListenPort <= 0 {
 		return errors.New("listenPort required")
@@ -236,12 +226,12 @@ func validate(item *models.ProxyInbound) error {
 }
 
 func (s *Service) validatePublicRealityUniqueness(item *models.ProxyInbound) error {
-	if item.Template != "vless-reality-vision" || !item.Enabled {
+	if item.Template != "vless-xhttp" || !item.Enabled {
 		return nil
 	}
 	var count int64
 	query := s.db.Model(&models.ProxyInbound{}).
-		Where("template = ? AND enabled = ?", "vless-reality-vision", true)
+		Where("template = ? AND enabled = ?", "vless-xhttp", true)
 	if item.ID != 0 {
 		query = query.Where("id <> ?", item.ID)
 	}
@@ -249,7 +239,7 @@ func (s *Service) validatePublicRealityUniqueness(item *models.ProxyInbound) err
 		return err
 	}
 	if count > 0 {
-		return errors.New("only one enabled vless-reality-vision inbound can use public https port")
+		return errors.New("only one enabled vless-xhttp inbound can use public https port")
 	}
 	return nil
 }
@@ -325,9 +315,6 @@ func shareURI(item models.ProxyInbound) (string, error) {
 }
 
 func transportType(item models.ProxyInbound) string {
-	if item.Template == "vless-reality-vision" {
-		return "tcp"
-	}
 	return item.Network
 }
 

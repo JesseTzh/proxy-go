@@ -9,13 +9,13 @@ import (
 
 func Render(snapshot runtimeconfig.Snapshot) ([]byte, error) {
 	inbounds := make([]any, 0, len(snapshot.ProxyInbounds))
-	publicRealityCount := 0
+	publicXHTTPCount := 0
 	for _, inbound := range snapshot.ProxyInbounds {
-		if inbound.Template == "vless-reality-vision" {
-			publicRealityCount++
-			if publicRealityCount > 1 {
-				return nil, fmt.Errorf("only one enabled vless-reality-vision inbound can listen on public https port")
-			}
+		if inbound.Template == "vless-xhttp" {
+			publicXHTTPCount++
+		}
+		if publicXHTTPCount > 1 {
+			return nil, fmt.Errorf("only one enabled vless-xhttp inbound can listen on public https port")
 		}
 		rendered, err := RenderInbound(inbound)
 		if err != nil {
@@ -40,8 +40,6 @@ func Render(snapshot runtimeconfig.Snapshot) ([]byte, error) {
 
 func RenderInbound(in runtimeconfig.ProxyInbound) (map[string]any, error) {
 	switch in.Template {
-	case "vless-reality-vision":
-		return renderVLESSRealityVision(in), nil
 	case "vless-xhttp":
 		return renderVLESSXHTTP(in), nil
 	default:
@@ -49,45 +47,24 @@ func RenderInbound(in runtimeconfig.ProxyInbound) (map[string]any, error) {
 	}
 }
 
-func renderVLESSRealityVision(in runtimeconfig.ProxyInbound) map[string]any {
-	return baseVLESSInbound(publicRealityInbound(in), map[string]any{
-		"network":  "raw",
-		"security": "reality",
-		"realitySettings": map[string]any{
-			"show":        false,
-			"dest":        realityFallbackDest(in),
-			"serverNames": []any{realityServerName(in)},
-			"privateKey":  in.RealityPrivateKey,
-			"shortIds":    []any{in.RealityShortID},
-			"maxTimeDiff": in.RealityMaxTimeDiff,
-		},
-	})
-}
-
 func renderVLESSXHTTP(in runtimeconfig.ProxyInbound) map[string]any {
-	security := in.Security
-	if security == "" {
-		security = "reality"
-	}
 	stream := map[string]any{
 		"network": "xhttp",
 		"xhttpSettings": map[string]any{
 			"path": in.XHTTPPath,
 			"mode": in.XHTTPMode,
 		},
-		"security": security,
-	}
-	if security == "reality" {
-		stream["realitySettings"] = map[string]any{
+		"security": "reality",
+		"realitySettings": map[string]any{
 			"show":        false,
 			"dest":        realityDest(in),
 			"serverNames": []any{in.Domain},
 			"privateKey":  in.RealityPrivateKey,
 			"shortIds":    []any{in.RealityShortID},
 			"maxTimeDiff": in.RealityMaxTimeDiff,
-		}
+		},
 	}
-	return baseVLESSInbound(in, stream)
+	return baseVLESSInbound(publicInbound(in), stream)
 }
 
 func baseVLESSInbound(in runtimeconfig.ProxyInbound, streamSettings map[string]any) map[string]any {
@@ -111,7 +88,7 @@ func baseVLESSInbound(in runtimeconfig.ProxyInbound, streamSettings map[string]a
 	}
 }
 
-func publicRealityInbound(in runtimeconfig.ProxyInbound) runtimeconfig.ProxyInbound {
+func publicInbound(in runtimeconfig.ProxyInbound) runtimeconfig.ProxyInbound {
 	in.ListenAddr = "0.0.0.0"
 	if in.PublicHTTPSPort != 0 {
 		in.ListenPort = in.PublicHTTPSPort
@@ -129,18 +106,4 @@ func realityDest(in runtimeconfig.ProxyInbound) string {
 		port = 443
 	}
 	return fmt.Sprintf("%s:%d", host, port)
-}
-
-func realityFallbackDest(in runtimeconfig.ProxyInbound) string {
-	if in.ManagedHTTPSAddr != "" {
-		return in.ManagedHTTPSAddr
-	}
-	return realityDest(in)
-}
-
-func realityServerName(in runtimeconfig.ProxyInbound) string {
-	if in.RealityHandshakeServer != "" {
-		return in.RealityHandshakeServer
-	}
-	return in.Domain
 }

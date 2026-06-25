@@ -11,7 +11,7 @@ import (
 	"github.com/proxy-go/proxy-go/internal/xray"
 )
 
-func TestCreateVLESSRealityVisionGeneratesHiddenSecrets(t *testing.T) {
+func TestCreateVLESSXHTTPRealityGeneratesHiddenSecrets(t *testing.T) {
 	db := testutil.NewDB(t)
 	cfg := testutil.NewConfig(t)
 	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
@@ -19,9 +19,7 @@ func TestCreateVLESSRealityVisionGeneratesHiddenSecrets(t *testing.T) {
 
 	item, err := svc.Create(context.Background(), CreateRequest{
 		Name:                   "main",
-		Template:               "vless-reality-vision",
 		DomainID:               1,
-		ListenPort:             31001,
 		RealityHandshakeServer: "www.cloudflare.com",
 		RealityHandshakePort:   443,
 		Enabled:                true,
@@ -29,7 +27,7 @@ func TestCreateVLESSRealityVisionGeneratesHiddenSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create inbound: %v", err)
 	}
-	if item.Template != "vless-reality-vision" || item.Network != "raw" || item.Flow != "xtls-rprx-vision" {
+	if item.Template != "vless-xhttp" || item.Network != "xhttp" || item.Security != "reality" || item.XHTTPPath != "/xhttp" {
 		t.Fatalf("unexpected defaults: %#v", item)
 	}
 	if item.UUID == "" || item.RealityPrivateKey == "" || item.RealityPublicKey == "" || item.RealityShortID == "" {
@@ -44,24 +42,20 @@ func TestCreateVLESSRealityVisionGeneratesHiddenSecrets(t *testing.T) {
 	}
 }
 
-func TestCreateVLESSXHTTPRealityAppliesDefaults(t *testing.T) {
+func TestCreateRejectsRealityVisionTemplate(t *testing.T) {
 	db := testutil.NewDB(t)
 	cfg := testutil.NewConfig(t)
 	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
 	svc := New(db, cfg, fakeGenerator())
 
-	item, err := svc.Create(context.Background(), CreateRequest{
-		Name:       "xhttp",
-		Template:   "vless-xhttp",
-		DomainID:   1,
-		ListenPort: 31002,
-		Enabled:    true,
+	_, err := svc.Create(context.Background(), CreateRequest{
+		Name:     "legacy",
+		Template: "vless-reality-vision",
+		DomainID: 1,
+		Enabled:  true,
 	})
-	if err != nil {
-		t.Fatalf("create inbound: %v", err)
-	}
-	if item.Network != "xhttp" || item.Security != "reality" || item.XHTTPPath != "/xhttp" || item.XHTTPMode != "auto" {
-		t.Fatalf("unexpected xhttp defaults: %#v", item)
+	if err == nil || !strings.Contains(err.Error(), "only vless-xhttp is supported") {
+		t.Fatalf("expected unsupported template error, got %v", err)
 	}
 }
 
@@ -71,11 +65,9 @@ func TestConfigDetailsReturnsRenderedInboundJSON(t *testing.T) {
 	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
 	svc := New(db, cfg, fakeGenerator())
 	item, err := svc.Create(context.Background(), CreateRequest{
-		Name:       "main",
-		Template:   "vless-reality-vision",
-		DomainID:   1,
-		ListenPort: 31001,
-		Enabled:    true,
+		Name:     "main",
+		DomainID: 1,
+		Enabled:  true,
 	})
 	if err != nil {
 		t.Fatalf("create inbound: %v", err)
@@ -92,49 +84,15 @@ func TestConfigDetailsReturnsRenderedInboundJSON(t *testing.T) {
 	}
 }
 
-func TestShareDetailsBuildsVLESSRealityVisionURI(t *testing.T) {
-	db := testutil.NewDB(t)
-	cfg := testutil.NewConfig(t)
-	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
-	svc := New(db, cfg, fakeGenerator())
-	item, err := svc.Create(context.Background(), CreateRequest{
-		Name:                   "main",
-		Template:               "vless-reality-vision",
-		DomainID:               1,
-		ListenPort:             31001,
-		RealityHandshakeServer: "www.cloudflare.com",
-		RealityHandshakePort:   443,
-		Enabled:                true,
-	})
-	if err != nil {
-		t.Fatalf("create inbound: %v", err)
-	}
-
-	share, err := svc.ShareDetails(item.ID)
-	if err != nil {
-		t.Fatalf("share details: %v", err)
-	}
-
-	want := "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&flow=xtls-rprx-vision&fp=chrome&pbk=public-key&security=reality&sid=abcd1234&sni=www.cloudflare.com&type=tcp#main"
-	if share.URI != want {
-		t.Fatalf("unexpected share uri:\nwant %s\n got %s", want, share.URI)
-	}
-	if share.Domain != "proxy.example.com" || share.Template != "vless-reality-vision" {
-		t.Fatalf("unexpected share metadata: %#v", share)
-	}
-}
-
 func TestShareDetailsBuildsVLESSXHTTPURI(t *testing.T) {
 	db := testutil.NewDB(t)
 	cfg := testutil.NewConfig(t)
 	db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"})
 	svc := New(db, cfg, fakeGenerator())
 	item, err := svc.Create(context.Background(), CreateRequest{
-		Name:       "xhttp",
-		Template:   "vless-xhttp",
-		DomainID:   1,
-		ListenPort: 31002,
-		Enabled:    true,
+		Name:     "xhttp",
+		DomainID: 1,
+		Enabled:  true,
 	})
 	if err != nil {
 		t.Fatalf("create inbound: %v", err)

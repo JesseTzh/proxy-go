@@ -31,14 +31,15 @@ func TestLoadIncludesEnabledResourcesAndSystemSetting(t *testing.T) {
 	db.Create(&models.ProxyInbound{
 		DomainID:               enabledDomain.ID,
 		Name:                   "main",
-		Template:               "vless-reality-vision",
+		Template:               "vless-xhttp",
 		Protocol:               "vless",
 		UUID:                   "uuid",
 		ListenAddr:             "127.0.0.1",
 		ListenPort:             31001,
-		Network:                "raw",
+		Network:                "xhttp",
 		Security:               "reality",
-		Flow:                   "xtls-rprx-vision",
+		XHTTPPath:              "/xhttp",
+		XHTTPMode:              "auto",
 		RealityPrivateKey:      "private",
 		RealityPublicKey:       "public",
 		RealityShortID:         "abcd1234",
@@ -50,7 +51,7 @@ func TestLoadIncludesEnabledResourcesAndSystemSetting(t *testing.T) {
 	db.Create(&models.ProxyInbound{
 		DomainID:   disabledDomain.ID,
 		Name:       "disabled",
-		Template:   "vless-reality-vision",
+		Template:   "vless-xhttp",
 		UUID:       "disabled-uuid",
 		ListenPort: 31002,
 		Enabled:    false,
@@ -75,7 +76,7 @@ func TestLoadIncludesEnabledResourcesAndSystemSetting(t *testing.T) {
 	if snapshot.ProxyInbounds[0].Domain != "proxy.example.com" || snapshot.ProxyInbounds[0].ListenPort != 31001 {
 		t.Fatalf("unexpected proxy inbound: %#v", snapshot.ProxyInbounds[0])
 	}
-	if got := snapshot.ProxyInbounds[0].Template; got != "vless-reality-vision" {
+	if got := snapshot.ProxyInbounds[0].Template; got != "vless-xhttp" {
 		t.Fatalf("template = %q", got)
 	}
 	if got := snapshot.ProxyInbounds[0].RealityPrivateKey; got != "private" {

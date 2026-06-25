@@ -119,15 +119,16 @@ func TestInboundRoutesReplaceVLESSRoutes(t *testing.T) {
 	if err := db.Create(&models.ProxyInbound{
 		ID:                     1,
 		Name:                   "main",
-		Template:               "vless-reality-vision",
+		Template:               "vless-xhttp",
 		Protocol:               "vless",
 		DomainID:               1,
 		UUID:                   "11111111-1111-1111-1111-111111111111",
 		ListenAddr:             "127.0.0.1",
 		ListenPort:             31001,
-		Network:                "raw",
+		Network:                "xhttp",
 		Security:               "reality",
-		Flow:                   "xtls-rprx-vision",
+		XHTTPPath:              "/xhttp",
+		XHTTPMode:              "auto",
 		RealityPrivateKey:      "private",
 		RealityPublicKey:       "public",
 		RealityShortID:         "abcd1234",
@@ -162,15 +163,16 @@ func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
 	if err := db.Create(&models.ProxyInbound{
 		ID:                     1,
 		Name:                   "main",
-		Template:               "vless-reality-vision",
+		Template:               "vless-xhttp",
 		Protocol:               "vless",
 		DomainID:               1,
 		UUID:                   "11111111-1111-1111-1111-111111111111",
 		ListenAddr:             "127.0.0.1",
 		ListenPort:             31001,
-		Network:                "raw",
+		Network:                "xhttp",
 		Security:               "reality",
-		Flow:                   "xtls-rprx-vision",
+		XHTTPPath:              "/xhttp",
+		XHTTPMode:              "auto",
 		RealityPublicKey:       "public",
 		RealityShortID:         "abcd1234",
 		RealityHandshakeServer: "www.cloudflare.com",
@@ -195,7 +197,7 @@ func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&flow=xtls-rprx-vision&fp=chrome&pbk=public&security=reality&sid=abcd1234&sni=www.cloudflare.com&type=tcp#main" {
+	if body.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&mode=auto&path=%2Fxhttp&pbk=public&security=reality&sid=abcd1234&sni=www.cloudflare.com&type=xhttp#main" {
 		t.Fatalf("unexpected uri: %s", body.URI)
 	}
 }

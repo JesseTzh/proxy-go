@@ -21,22 +21,15 @@ import type { InboundShare, ProxyInbound } from '../types'
 const JsonView = lazy(() => import('@uiw/react-json-view'))
 
 const defaults: InboundFormValues = {
-  name: 'VLESS Reality Vision',
-  template: 'vless-reality-vision',
+  name: 'VLESS XHTTP Reality',
+  template: 'vless-xhttp',
   domainId: 1,
-  listenPort: 31001,
-  security: 'reality',
   xhttpPath: '/xhttp',
   xhttpMode: 'auto',
   realityHandshakeServer: 'www.cloudflare.com',
   realityHandshakePort: 443,
   realityMaxTimeDiff: 60,
   enabled: true,
-}
-
-const templateLabels: Record<ProxyInbound['template'], string> = {
-  'vless-reality-vision': 'VLESS Reality Vision',
-  'vless-xhttp': 'VLESS XHTTP',
 }
 
 export function VlessPage() {
@@ -153,21 +146,20 @@ export function VlessPage() {
   return (
     <div className="space-y-4" data-testid="inbounds-page">
       <div className="flex flex-wrap items-start justify-between gap-3" data-testid="inbounds-toolbar">
-        <PageHeader title="代理入口" desc="管理 Xray 入站模板与监听配置。" data-testid="inbounds-header" />
+        <PageHeader title="代理入口" desc="管理 Xray VLESS XHTTP REALITY 公网入口。" data-testid="inbounds-header" />
         <Button onClick={openCreate} data-testid="inbound-create-button">
           <Plus size={16} aria-hidden="true" />
           新增入口
         </Button>
       </div>
 
-      <DataTable headers={['名称', '模板', '域名', '监听', '传输', '状态', '操作']} data-testid="inbounds-table">
+      <DataTable headers={['名称', '客户端域名', '公网入口', 'XHTTP 路径', '状态', '操作']} data-testid="inbounds-table">
         {items.map(item => (
           <TableRow key={item.id} data-testid={`inbound-row-${item.id}`}>
             <TableCell>{item.name}</TableCell>
-            <TableCell>{templateLabels[item.template] ?? item.template}</TableCell>
             <TableCell>{item.domain?.domain || domainNameForValue(domains, item.domainId, '-')}</TableCell>
             <TableCell>{formatInboundListen(item)}</TableCell>
-            <TableCell>{item.network}{item.xhttpPath ? ` ${item.xhttpPath}` : ''}</TableCell>
+            <TableCell>{item.xhttpPath || '/xhttp'}</TableCell>
             <TableCell><StatusBadge tone={item.enabled ? 'success' : 'neutral'}>{item.enabled ? '启用' : '停用'}</StatusBadge></TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-2" data-testid={`inbound-actions-${item.id}`}>
@@ -270,12 +262,10 @@ function InboundDialog({
   onClose: () => void
   onSubmit: (values: InboundFormValues) => Promise<void>
 }) {
-  const { control, register, handleSubmit, watch, formState: { errors, isSubmitting } } = useForm<InboundFormInput, unknown, InboundFormValues>({
+  const { control, register, handleSubmit, formState: { errors, isSubmitting } } = useForm<InboundFormInput, unknown, InboundFormValues>({
     resolver: zodResolver(inboundSchema),
     defaultValues: initial,
   })
-  const template = watch('template')
-  const showXHTTP = template === 'vless-xhttp'
 
   return (
     <Dialog open onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
@@ -288,26 +278,9 @@ function InboundDialog({
             <FormField label="名称" error={errors.name?.message} data-testid="inbound-name-field">
               <Input {...register('name')} data-testid="inbound-name-input" />
             </FormField>
-            <FormField label="模板" error={errors.template?.message} data-testid="inbound-template-field">
-              <Controller
-                control={control}
-                name="template"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full" data-testid="inbound-template-select">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="vless-reality-vision">VLESS Reality Vision</SelectItem>
-                      <SelectItem value="vless-xhttp">VLESS XHTTP</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </FormField>
             <FormField
               label="客户端连接域名"
-              description="客户端实际连接的域名，用于生成分享链接的 Host；XHTTP 入口还会按这个域名匹配 Nginx 站点并转发对应路径。"
+              description="客户端实际连接的域名，用于生成分享链接的 Host，并作为 XHTTP REALITY 的 serverName。"
               error={errors.domainId?.message}
               data-testid="inbound-domain-field"
             >
@@ -328,45 +301,33 @@ function InboundDialog({
                 )}
               />
             </FormField>
-            <FormField label="监听端口" error={errors.listenPort?.message} data-testid="inbound-listen-port-field">
-              <Input type="number" {...register('listenPort')} data-testid="inbound-listen-port-input" />
+            <FormField
+              label="公网入口"
+              description="Xray 直接监听公网 HTTPS 端口 443；Nginx 不再转发 XHTTP 流量。"
+              data-testid="inbound-public-entry-field"
+            >
+              <Input value="0.0.0.0:443" readOnly data-testid="inbound-public-entry-input" />
             </FormField>
-            <FormField label="安全层" error={errors.security?.message} data-testid="inbound-security-field">
-              <Controller
-                control={control}
-                name="security"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full" data-testid="inbound-security-select">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="reality">REALITY</SelectItem>
-                      <SelectItem value="tls">TLS</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
+            <FormField label="XHTTP 路径" error={errors.xhttpPath?.message} data-testid="inbound-xhttp-path-field">
+              <Input {...register('xhttpPath')} data-testid="inbound-xhttp-path-input" />
             </FormField>
-            {showXHTTP ? (
-              <>
-                <FormField label="XHTTP 路径" error={errors.xhttpPath?.message} data-testid="inbound-xhttp-path-field">
-                  <Input {...register('xhttpPath')} data-testid="inbound-xhttp-path-input" />
-                </FormField>
-                <FormField label="XHTTP 模式" error={errors.xhttpMode?.message} data-testid="inbound-xhttp-mode-field">
-                  <Input {...register('xhttpMode')} data-testid="inbound-xhttp-mode-input" />
-                </FormField>
-              </>
-            ) : null}
+            <FormField label="XHTTP 模式" error={errors.xhttpMode?.message} data-testid="inbound-xhttp-mode-field">
+              <Input {...register('xhttpMode')} data-testid="inbound-xhttp-mode-input" />
+            </FormField>
             <FormField
               label="REALITY 握手服务器"
-              description="REALITY 伪装握手的目标站点，会写入 dest/serverNames 和分享链接 sni；留空时使用客户端连接域名，TLS 模式不会使用该字段。"
+              description="REALITY 伪装握手的目标站点，会写入 dest；留空时使用客户端连接域名。"
               error={errors.realityHandshakeServer?.message}
               data-testid="inbound-handshake-server-field"
             >
               <Input {...register('realityHandshakeServer')} data-testid="inbound-handshake-server-input" />
             </FormField>
-            <FormField label="握手端口" error={errors.realityHandshakePort?.message} data-testid="inbound-handshake-port-field">
+            <FormField
+              label="REALITY 握手端口"
+              description="REALITY 伪装握手服务器的端口，通常是 443。"
+              error={errors.realityHandshakePort?.message}
+              data-testid="inbound-handshake-port-field"
+            >
               <Input type="number" {...register('realityHandshakePort')} data-testid="inbound-handshake-port-input" />
             </FormField>
             <FormField label="最大时间差" error={errors.realityMaxTimeDiff?.message} data-testid="inbound-max-time-diff-field">
@@ -398,10 +359,8 @@ function InboundDialog({
 function valuesFromItem(item: ProxyInbound): InboundFormValues {
   return {
     name: item.name,
-    template: item.template,
+    template: 'vless-xhttp',
     domainId: item.domainId,
-    listenPort: item.listenPort,
-    security: item.security === 'tls' ? 'tls' : 'reality',
     xhttpPath: item.xhttpPath || '/xhttp',
     xhttpMode: item.xhttpMode || 'auto',
     realityHandshakeServer: item.realityHandshakeServer || 'www.cloudflare.com',
@@ -411,11 +370,8 @@ function valuesFromItem(item: ProxyInbound): InboundFormValues {
   }
 }
 
-function formatInboundListen(item: ProxyInbound) {
-  if (item.template === 'vless-reality-vision') {
-    return '0.0.0.0:443'
-  }
-  return `${item.listenAddr}:${item.listenPort}`
+function formatInboundListen(_item: ProxyInbound) {
+  return '0.0.0.0:443'
 }
 
 function domainNameForValue(domains: { id: number; domain: string }[], value: unknown, fallback: string) {

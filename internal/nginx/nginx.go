@@ -223,18 +223,6 @@ http {
         server_name {{ $rule.Domain }};
         ssl_certificate {{$.CertDir}}/{{ $rule.Domain }}/fullchain.pem;
         ssl_certificate_key {{$.CertDir}}/{{ $rule.Domain }}/privkey.pem;
-        {{- range $.Inbounds }}
-        {{- if and (eq .Template "vless-xhttp") (eq .Domain $rule.Domain) }}
-        location ^~ {{ .XHTTPPath }} {
-            proxy_pass http://{{ .ListenAddr }}:{{ .ListenPort }};
-            proxy_http_version 1.1;
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto https;
-        }
-        {{- end }}
-        {{- end }}
         location / {
             proxy_pass {{ $rule.TargetScheme }}://{{ $rule.TargetHost }}:{{ $rule.TargetPort }};
             {{- if $rule.PreserveHost }}proxy_set_header Host $host;{{ else }}proxy_set_header Host {{ $rule.TargetHost }};{{ end }}

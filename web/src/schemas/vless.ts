@@ -2,10 +2,8 @@ import { z } from 'zod'
 
 export const inboundSchema = z.object({
   name: z.string().min(1, '请输入名称'),
-  template: z.enum(['vless-reality-vision', 'vless-xhttp']),
+  template: z.literal('vless-xhttp').default('vless-xhttp'),
   domainId: z.coerce.number().int().positive('请选择域名'),
-  listenPort: z.coerce.number().int().min(1).max(65535),
-  security: z.enum(['reality', 'tls']).default('reality'),
   xhttpPath: z.string().default('/xhttp'),
   xhttpMode: z.string().default('auto'),
   realityHandshakeServer: z.string().default('www.cloudflare.com'),

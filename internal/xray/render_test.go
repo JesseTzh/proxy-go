@@ -9,40 +9,10 @@ import (
 	"github.com/proxy-go/proxy-go/internal/testutil"
 )
 
-func TestRenderVLESSRealityVisionInbound(t *testing.T) {
+func TestRenderVLESSXHTTPRealityInboundUsesPublicHTTPS(t *testing.T) {
 	out, err := Render(runtimeconfig.Snapshot{
-		ProxyInbounds: []runtimeconfig.ProxyInbound{testInbound("vless-reality-vision")},
+		ProxyInbounds: []runtimeconfig.ProxyInbound{testInbound()},
 	})
-	if err != nil {
-		t.Fatalf("render xray: %v", err)
-	}
-	text := string(out)
-	for _, want := range []string{
-		`"protocol": "vless"`,
-		`"network": "raw"`,
-		`"security": "reality"`,
-		`"flow": "xtls-rprx-vision"`,
-		`"listen": "0.0.0.0"`,
-		`"port": 443`,
-		`"dest": "127.0.0.1:30443"`,
-		`"serverNames"`,
-		`"www.cloudflare.com"`,
-		`"shortIds"`,
-	} {
-		if !strings.Contains(text, want) {
-			t.Fatalf("rendered config missing %q:\n%s", want, text)
-		}
-	}
-}
-
-func TestRenderVLESSXHTTPRealityInbound(t *testing.T) {
-	inbound := testInbound("vless-xhttp")
-	inbound.Network = "xhttp"
-	inbound.Flow = ""
-	inbound.XHTTPPath = "/xhttp"
-	inbound.XHTTPMode = "auto"
-
-	out, err := Render(runtimeconfig.Snapshot{ProxyInbounds: []runtimeconfig.ProxyInbound{inbound}})
 	if err != nil {
 		t.Fatalf("render xray: %v", err)
 	}
@@ -53,6 +23,12 @@ func TestRenderVLESSXHTTPRealityInbound(t *testing.T) {
 		`"xhttpSettings"`,
 		`"path": "/xhttp"`,
 		`"security": "reality"`,
+		`"listen": "0.0.0.0"`,
+		`"port": 443`,
+		`"dest": "www.cloudflare.com:443"`,
+		`"serverNames"`,
+		`"proxy.example.com"`,
+		`"shortIds"`,
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("rendered config missing %q:\n%s", want, text)
@@ -60,23 +36,23 @@ func TestRenderVLESSXHTTPRealityInbound(t *testing.T) {
 	}
 }
 
-func TestRenderRejectsMultiplePublicRealityInbounds(t *testing.T) {
+func TestRenderRejectsMultiplePublicXHTTPInbounds(t *testing.T) {
 	_, err := Render(runtimeconfig.Snapshot{
 		ProxyInbounds: []runtimeconfig.ProxyInbound{
-			testInbound("vless-reality-vision"),
-			testInbound("vless-reality-vision"),
+			testInbound(),
+			testInbound(),
 		},
 	})
 	if err == nil {
-		t.Fatalf("expected multiple public reality inbound error")
+		t.Fatalf("expected multiple public xhttp inbound error")
 	}
-	if !strings.Contains(err.Error(), "only one enabled vless-reality-vision inbound") {
+	if !strings.Contains(err.Error(), "only one enabled vless-xhttp inbound") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestRenderSingleInboundIncludesSecrets(t *testing.T) {
-	rendered, err := RenderInbound(testInbound("vless-reality-vision"))
+	rendered, err := RenderInbound(testInbound())
 	if err != nil {
 		t.Fatalf("render inbound: %v", err)
 	}
@@ -101,11 +77,11 @@ func TestNewServiceUsesXrayProcessName(t *testing.T) {
 	}
 }
 
-func testInbound(template string) runtimeconfig.ProxyInbound {
+func testInbound() runtimeconfig.ProxyInbound {
 	return runtimeconfig.ProxyInbound{
 		ID:                     7,
 		Name:                   "main",
-		Template:               template,
+		Template:               "vless-xhttp",
 		PublicHTTPSPort:        443,
 		ManagedHTTPSAddr:       "127.0.0.1:30443",
 		Protocol:               "vless",
@@ -113,9 +89,10 @@ func testInbound(template string) runtimeconfig.ProxyInbound {
 		ListenAddr:             "127.0.0.1",
 		ListenPort:             31001,
 		UUID:                   "11111111-1111-1111-1111-111111111111",
-		Network:                "raw",
+		Network:                "xhttp",
 		Security:               "reality",
-		Flow:                   "xtls-rprx-vision",
+		XHTTPPath:              "/xhttp",
+		XHTTPMode:              "auto",
 		RealityPrivateKey:      "private-key",
 		RealityPublicKey:       "public-key",
 		RealityShortID:         "abcd1234",
