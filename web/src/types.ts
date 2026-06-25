@@ -6,4 +6,5 @@ export type InboundShare = { name: string; domain: string; uri: string }
 export type ProcessStatus = { name?: string; path?: string; running: boolean; startedAt?: string; lastError?: string }
 export type RuntimeStatus = { proxyGo: {running:boolean}; nginx: ProcessStatus; xray: ProcessStatus; goInternalAddr: string; nginxPublicHttpPort: number; nginxPublicHttpsPort: number; nginxManagedHttpsAddr: string; xrayInboundListen: string; domainCount: number; certificateCount: number; reverseProxyCount: number; inboundCount: number; expiringCertificateCount: number }
 export type RuntimeLogSummary = { logs: string[] }
+export type RuntimeConfigSnapshot = { path: string; content: string }
 export type AuditLog = { id: number; action: string; resourceType: string; resourceId: string; detail: string; ip: string; userAgent: string; createdAt: string }

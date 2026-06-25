@@ -115,6 +115,48 @@ func TestXrayLogsRouteReturnsLogSummaryAndSingboxRouteIsGone(t *testing.T) {
 	}
 }
 
+func TestNginxConfigRouteReturnsRenderedConfig(t *testing.T) {
+	cfg := testutil.NewConfig(t)
+	if err := os.MkdirAll(cfg.Paths.NginxConfDir, 0755); err != nil {
+		t.Fatalf("create nginx dir: %v", err)
+	}
+	confPath := filepath.Join(cfg.Paths.NginxConfDir, "nginx.conf")
+	if err := os.WriteFile(confPath, []byte("stream { apple.com 127.0.0.1:31001; }"), 0644); err != nil {
+		t.Fatalf("write nginx config: %v", err)
+	}
+	db := testutil.NewDB(t)
+	router := Router(Deps{
+		Cfg:       cfg,
+		DB:        db,
+		Audit:     audit.New(db),
+		ACME:      acme.New(db),
+		Limiter:   security.NewLoginLimiter(),
+		Validator: validator.New(),
+	})
+	token := createSession(t, db)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/runtime/nginx/config", nil)
+	req.AddCookie(&http.Cookie{Name: "proxy_go_session", Value: token})
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Data struct {
+			Path    string `json:"path"`
+			Content string `json:"content"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if body.Data.Path != confPath || body.Data.Content != "stream { apple.com 127.0.0.1:31001; }" {
+		t.Fatalf("unexpected nginx config response: %s", rec.Body.String())
+	}
+}
+
 func TestInboundRoutesReplaceVLESSRoutes(t *testing.T) {
 	cfg := testutil.NewConfig(t)
 	db := testutil.NewDB(t)

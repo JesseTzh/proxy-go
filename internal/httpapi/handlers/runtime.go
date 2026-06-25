@@ -118,6 +118,17 @@ func XrayLogs(d Deps) gin.HandlerFunc {
 	}
 }
 
+func NginxConfig(d Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		config, err := runtimeService(d).NginxConfig()
+		if err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
+		response.JSON(c, 200, config)
+	}
+}
+
 func runtimeService(d Deps) *runtimesvc.Service {
 	return &runtimesvc.Service{
 		DB:    d.DB,

@@ -57,6 +57,7 @@ func Router(d Deps) *gin.Engine {
 	protected.POST("/runtime/nginx/stop", handlers.StopNginx(d))
 	protected.POST("/runtime/nginx/restart", handlers.RestartNginx(d))
 	protected.POST("/runtime/nginx/reload", handlers.ReloadNginx(d))
+	protected.GET("/runtime/nginx/config", handlers.NginxConfig(d))
 	protected.POST("/runtime/xray/start", handlers.StartXray(d))
 	protected.POST("/runtime/xray/stop", handlers.StopXray(d))
 	protected.POST("/runtime/xray/restart", handlers.RestartXray(d))

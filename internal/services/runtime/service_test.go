@@ -3,6 +3,8 @@ package runtime
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -101,6 +103,26 @@ func TestXrayLogsReturnProcessDetails(t *testing.T) {
 	want := LogSummary{Logs: []string{"stderr-detail", "process exited: signal: killed"}}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("unexpected xray logs: got %#v want %#v", got, want)
+	}
+}
+
+func TestNginxConfigReadsRenderedConfig(t *testing.T) {
+	cfg := testutil.NewConfig(t)
+	if err := os.MkdirAll(cfg.Paths.NginxConfDir, 0755); err != nil {
+		t.Fatalf("create nginx dir: %v", err)
+	}
+	path := filepath.Join(cfg.Paths.NginxConfDir, "nginx.conf")
+	if err := os.WriteFile(path, []byte("stream { apple.com 127.0.0.1:31001; }"), 0644); err != nil {
+		t.Fatalf("write nginx config: %v", err)
+	}
+	svc := &Service{Cfg: cfg}
+
+	got, err := svc.NginxConfig()
+	if err != nil {
+		t.Fatalf("nginx config: %v", err)
+	}
+	if got.Path != path || got.Content != "stream { apple.com 127.0.0.1:31001; }" {
+		t.Fatalf("unexpected nginx config snapshot: %#v", got)
 	}
 }
 

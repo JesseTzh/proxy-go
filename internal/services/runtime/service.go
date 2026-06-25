@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -57,6 +58,11 @@ type Status struct {
 
 type LogSummary struct {
 	Logs []string `json:"logs"`
+}
+
+type ConfigSnapshot struct {
+	Path    string `json:"path"`
+	Content string `json:"content"`
 }
 
 func (s *Service) Status() (Status, error) {
@@ -152,6 +158,15 @@ func (s *Service) RestartXray(ctx context.Context) error {
 
 func (s *Service) Logs() LogSummary {
 	return LogSummary{Logs: []string{"logs are written under " + filepath.Clean(s.Cfg.Paths.LogDir)}}
+}
+
+func (s *Service) NginxConfig() (ConfigSnapshot, error) {
+	path := filepath.Join(s.Cfg.Paths.NginxConfDir, "nginx.conf")
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return ConfigSnapshot{Path: path}, err
+	}
+	return ConfigSnapshot{Path: path, Content: string(content)}, nil
 }
 
 func (s *Service) XrayLogs() LogSummary {

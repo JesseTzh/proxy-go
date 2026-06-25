@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Boxes, Globe, Network, Play, Power, RefreshCw, RotateCw, ScrollText, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { Boxes, FileText, Globe, Network, Play, Power, RefreshCw, RotateCw, ScrollText, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -7,7 +7,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/ca
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '../lib/utils'
 import { getJson, postJson } from '../lib/api'
-import type { ProcessStatus, RuntimeLogSummary, RuntimeStatus } from '../types'
+import type { ProcessStatus, RuntimeConfigSnapshot, RuntimeLogSummary, RuntimeStatus } from '../types'
 
 type ProcessName = 'nginx' | 'xray'
 type ProcessAction = 'start' | 'stop' | 'restart'
@@ -25,6 +25,9 @@ export function DashboardPage() {
   const [xrayLogs, setXrayLogs] = useState<string[]>([])
   const [logsOpen, setLogsOpen] = useState(false)
   const [logsLoading, setLogsLoading] = useState(false)
+  const [nginxConfig, setNginxConfig] = useState<RuntimeConfigSnapshot>()
+  const [nginxConfigOpen, setNginxConfigOpen] = useState(false)
+  const [nginxConfigLoading, setNginxConfigLoading] = useState(false)
 
   const load = () =>
     getJson<RuntimeStatus>('runtime/status').then((nextStatus) => {
@@ -60,6 +63,19 @@ export function DashboardPage() {
       // global error dialog handles API failures
     } finally {
       setLogsLoading(false)
+    }
+  }
+
+  async function showNginxConfig() {
+    setNginxConfigOpen(true)
+    setNginxConfigLoading(true)
+    try {
+      const result = await getJson<RuntimeConfigSnapshot>('runtime/nginx/config')
+      setNginxConfig(result)
+    } catch {
+      // global error dialog handles API failures
+    } finally {
+      setNginxConfigLoading(false)
     }
   }
 
@@ -142,6 +158,7 @@ export function DashboardPage() {
             listen={formatNginxListen(status)}
             busy={busy}
             onAction={control}
+            onConfig={showNginxConfig}
             data-testid="dashboard-process-nginx"
           />
           <ProcessCard
@@ -172,6 +189,25 @@ export function DashboardPage() {
           </DialogContent>
         </Dialog>
       ) : null}
+
+      {nginxConfigOpen ? (
+        <Dialog open={nginxConfigOpen} onOpenChange={setNginxConfigOpen}>
+          <DialogContent className="max-w-4xl p-0" data-testid="dashboard-nginx-config-dialog">
+            <DialogHeader className="px-4 pt-4" data-testid="dashboard-nginx-config-header">
+              <DialogTitle className="flex items-center gap-2" data-testid="dashboard-nginx-config-title">
+                <FileText size={18} aria-hidden="true" />
+                Nginx 配置
+              </DialogTitle>
+              <div className="break-all text-xs text-neutral-500" data-testid="dashboard-nginx-config-path">
+                {nginxConfig?.path || '-'}
+              </div>
+            </DialogHeader>
+            <pre className="m-0 min-h-64 max-h-[70vh] overflow-auto rounded-b-xl bg-neutral-950 p-4 text-xs leading-5 text-neutral-100 whitespace-pre-wrap" data-testid="dashboard-nginx-config-content">
+              {nginxConfigLoading ? '加载中…' : nginxConfig?.content || '暂无配置'}
+            </pre>
+          </DialogContent>
+        </Dialog>
+      ) : null}
     </div>
   )
 }
@@ -184,6 +220,7 @@ function ProcessCard({
   busy,
   onAction,
   onLogs,
+  onConfig,
   'data-testid': dataTestId,
 }: {
   title: string
@@ -193,9 +230,11 @@ function ProcessCard({
   busy?: string
   onAction: (process: ProcessName, action: ProcessAction) => Promise<void>
   onLogs?: () => Promise<void>
+  onConfig?: () => Promise<void>
   'data-testid'?: string
 }) {
   const running = Boolean(status?.running)
+  const actionCount = 3 + (onLogs ? 1 : 0) + (onConfig ? 1 : 0)
 
   return (
     <Card className="rounded-xl bg-white p-7 shadow-[var(--shadow-border)]" data-testid={dataTestId}>
@@ -208,7 +247,7 @@ function ProcessCard({
         <RuntimeBadge running={running} data-testid={`${dataTestId}-status`} />
       </CardHeader>
 
-      <div className={`mt-6 grid gap-3 ${onLogs ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`} data-testid={`${dataTestId}-actions`}>
+      <div className={`mt-6 grid gap-3 ${actionCount === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`} data-testid={`${dataTestId}-actions`}>
         <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" disabled={busy === `${process}-start`} onClick={() => onAction(process, 'start')} data-testid={`${dataTestId}-start`}>
           <Play size={16} aria-hidden="true" />
           启动
@@ -225,6 +264,12 @@ function ProcessCard({
           <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" onClick={onLogs} data-testid={`${dataTestId}-logs`}>
             <ScrollText size={16} aria-hidden="true" />
             日志
+          </Button>
+        ) : null}
+        {onConfig ? (
+          <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" onClick={onConfig} data-testid={`${dataTestId}-config`}>
+            <FileText size={16} aria-hidden="true" />
+            配置
           </Button>
         ) : null}
       </div>
