@@ -305,7 +305,12 @@ function InboundDialog({
                 )}
               />
             </FormField>
-            <FormField label="域名" error={errors.domainId?.message} data-testid="inbound-domain-field">
+            <FormField
+              label="客户端连接域名"
+              description="客户端实际连接的域名，用于生成分享链接的 Host；XHTTP 入口还会按这个域名匹配 Nginx 站点并转发对应路径。"
+              error={errors.domainId?.message}
+              data-testid="inbound-domain-field"
+            >
               <Controller
                 control={control}
                 name="domainId"
@@ -353,7 +358,12 @@ function InboundDialog({
                 </FormField>
               </>
             ) : null}
-            <FormField label="握手服务器" error={errors.realityHandshakeServer?.message} data-testid="inbound-handshake-server-field">
+            <FormField
+              label="REALITY 握手服务器"
+              description="REALITY 伪装握手的目标站点，会写入 dest/serverNames 和分享链接 sni；留空时使用客户端连接域名，TLS 模式不会使用该字段。"
+              error={errors.realityHandshakeServer?.message}
+              data-testid="inbound-handshake-server-field"
+            >
               <Input {...register('realityHandshakeServer')} data-testid="inbound-handshake-server-input" />
             </FormField>
             <FormField label="握手端口" error={errors.realityHandshakePort?.message} data-testid="inbound-handshake-port-field">

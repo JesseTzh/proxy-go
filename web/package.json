@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "test:dashboard": "node scripts/assert-dashboard.mjs",
+    "test:inbounds": "node scripts/assert-inbound-domain-help.mjs",
     "test:login": "node scripts/assert-login.mjs",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0"
