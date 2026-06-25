@@ -9,6 +9,8 @@ XRAY_BIN="${XRAY_BIN:-$DEFAULT_XRAY_BIN}"
 SOCKS_PORT="${SOCKS_PORT:-10808}"
 TEST_URL="${TEST_URL:-https://www.youtube.com/generate_204}"
 VLESS_URI=""
+XRAY_PID=""
+TEST_TMP_DIR=""
 
 usage() {
   cat <<'USAGE'
@@ -170,7 +172,8 @@ const config = {
 if (network === "xhttp") {
   config.outbounds[0].streamSettings.xhttpSettings = {
     path: q.get("path") || "/",
-    mode: q.get("mode") || "auto"
+    mode: q.get("mode") || "auto",
+    host: q.get("host") || u.hostname
   };
 }
 console.log(JSON.stringify(config, null, 2));
@@ -178,10 +181,10 @@ NODE
 }
 
 run_test() {
-  local tmp_dir config_path log_path pid
-  tmp_dir="$(mktemp -d)"
-  config_path="${tmp_dir}/client.json"
-  log_path="${tmp_dir}/xray.log"
+  local config_path log_path
+  TEST_TMP_DIR="$(mktemp -d)"
+  config_path="${TEST_TMP_DIR}/client.json"
+  log_path="${TEST_TMP_DIR}/xray.log"
   write_config "$config_path"
 
   echo "Using Xray: $XRAY_BIN"
@@ -191,11 +194,11 @@ run_test() {
 
   echo "Starting local SOCKS proxy on 127.0.0.1:${SOCKS_PORT}..."
   "$XRAY_BIN" run -config "$config_path" >"$log_path" 2>&1 &
-  pid="$!"
-  trap 'kill "$pid" >/dev/null 2>&1 || true; rm -rf "$tmp_dir"' EXIT
+  XRAY_PID="$!"
+  trap 'if [[ -n "${XRAY_PID:-}" ]]; then kill "$XRAY_PID" >/dev/null 2>&1 || true; fi; if [[ -n "${TEST_TMP_DIR:-}" ]]; then rm -rf "$TEST_TMP_DIR"; fi' EXIT
   sleep 1
 
-  if ! kill -0 "$pid" >/dev/null 2>&1; then
+  if ! kill -0 "$XRAY_PID" >/dev/null 2>&1; then
     echo "Xray exited before test request. Log:" >&2
     cat "$log_path" >&2
     exit 1

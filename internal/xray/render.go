@@ -62,12 +62,15 @@ func RenderInboundWithDebug(in runtimeconfig.ProxyInbound, debug bool) (map[stri
 }
 
 func renderVLESSXHTTP(in runtimeconfig.ProxyInbound, debug bool) map[string]any {
+	xhttpSettings := map[string]any{
+		"path": in.XHTTPPath,
+	}
+	if in.XHTTPMode != "" && in.XHTTPMode != "auto" {
+		xhttpSettings["mode"] = in.XHTTPMode
+	}
 	stream := map[string]any{
 		"network": "xhttp",
-		"xhttpSettings": map[string]any{
-			"path": in.XHTTPPath,
-			"mode": in.XHTTPMode,
-		},
+		"xhttpSettings": xhttpSettings,
 		"security": "reality",
 		"realitySettings": map[string]any{
 			"show":        debug,

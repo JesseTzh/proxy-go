@@ -34,6 +34,9 @@ func TestRenderVLESSXHTTPRealityInboundUsesLocalStreamBackend(t *testing.T) {
 			t.Fatalf("rendered config missing %q:\n%s", want, text)
 		}
 	}
+	if strings.Contains(text, `"mode": "auto"`) {
+		t.Fatalf("server xhttp auto mode should be omitted so xray accepts all modes:\n%s", text)
+	}
 }
 
 func TestRenderRejectsMultiplePublicXHTTPInbounds(t *testing.T) {

@@ -339,6 +339,7 @@ func shareURI(item models.ProxyInbound) (string, error) {
 	if item.Template == "vless-xhttp" {
 		query.Set("path", item.XHTTPPath)
 		query.Set("mode", item.XHTTPMode)
+		query.Set("host", item.Domain.Domain)
 	}
 
 	return (&url.URL{

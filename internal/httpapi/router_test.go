@@ -255,7 +255,7 @@ func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if body.Data.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&mode=auto&path=%2Fxhttp&pbk=public&security=reality&sid=abcd1234&sni=apple.com&type=xhttp#main" {
+	if body.Data.URI != "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&host=proxy.example.com&mode=auto&path=%2Fxhttp&pbk=public&security=reality&sid=abcd1234&sni=apple.com&type=xhttp#main" {
 		t.Fatalf("unexpected uri: %s", body.Data.URI)
 	}
 }

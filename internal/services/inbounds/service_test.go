@@ -193,7 +193,7 @@ func TestShareDetailsBuildsVLESSXHTTPURI(t *testing.T) {
 		t.Fatalf("share details: %v", err)
 	}
 
-	want := "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&mode=auto&path=%2Fxhttp&pbk=public-key&security=reality&sid=abcd1234&sni=apple.com&type=xhttp#xhttp"
+	want := "vless://11111111-1111-1111-1111-111111111111@proxy.example.com:443?encryption=none&fp=chrome&host=proxy.example.com&mode=auto&path=%2Fxhttp&pbk=public-key&security=reality&sid=abcd1234&sni=apple.com&type=xhttp#xhttp"
 	if share.URI != want {
 		t.Fatalf("unexpected share uri:\nwant %s\n got %s", want, share.URI)
 	}
