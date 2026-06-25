@@ -36,19 +36,6 @@ export function DashboardPage() {
     void load()
   }, [])
 
-  async function apply() {
-    setBusy('apply')
-    try {
-      await postJson('runtime/apply')
-      toast.success('配置已应用')
-    } catch {
-      toast.error('配置应用失败，请查看日志')
-    } finally {
-      setBusy(undefined)
-      void load()
-    }
-  }
-
   async function control(process: ProcessName, action: ProcessAction) {
     const key = `${process}-${action}`
     setBusy(key)
@@ -89,10 +76,6 @@ export function DashboardPage() {
           className="flex min-h-12 flex-wrap items-center gap-3 rounded-xl bg-white px-2 py-2 shadow-[var(--shadow-border)]"
           data-testid="dashboard-actions"
         >
-          <Button variant="outline" onClick={apply} disabled={busy === 'apply'} data-testid="dashboard-apply-button">
-            <RefreshCw size={16} aria-hidden="true" />
-            应用配置
-          </Button>
           <Button variant="outline" onClick={() => void load()} data-testid="dashboard-refresh-button">
             <RotateCw size={16} aria-hidden="true" />
             刷新状态

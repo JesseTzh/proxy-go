@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm } from 'react-hook-form'
+import { Pencil, Save, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataTable } from '../components/DataTable'
 import { FormField } from '../components/FormField'
@@ -13,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { useDomains } from '../hooks/useDomains'
-import { delJson, getJson, postJson } from '../lib/api'
+import { delJson, getJson, postJson, putJson } from '../lib/api'
 import { reverseProxySchema, type ReverseProxyFormInput, type ReverseProxyFormValues } from '../schemas/reverseProxy'
 import type { ReverseProxy } from '../types'
 
@@ -22,6 +23,8 @@ const LOCAL_HOST_TARGET = 'host.docker.internal'
 export function ReverseProxiesPage(){
   const [items,setItems]=useState<ReverseProxy[]>([])
   const [useLocalPort,setUseLocalPort]=useState(false)
+  const [editingId,setEditingId]=useState<number>()
+  const [editValues,setEditValues]=useState<ReverseProxyFormInput>()
   const {domains,loading: domainsLoading}=useDomains()
   const {control,register,handleSubmit,setValue,watch,formState:{errors}} = useForm<ReverseProxyFormInput, unknown, ReverseProxyFormValues>({
     resolver:zodResolver(reverseProxySchema),
@@ -46,7 +49,49 @@ export function ReverseProxiesPage(){
       setValue('domainId', domains[0].id, { shouldValidate: true })
     }
   },[domains, selectedDomainId, setValue])
-  async function add(values: ReverseProxyFormValues){ await postJson('reverse-proxies',values); toast.success('已新增反代规则'); load() }
+  async function add(values: ReverseProxyFormValues){
+    await postJson('reverse-proxies',values)
+    toast.success('已新增反代规则，配置已自动应用')
+    load()
+  }
+
+  function startEdit(item: ReverseProxy) {
+    setEditingId(item.id)
+    setEditValues({
+      domainId: item.domainId,
+      targetScheme: item.targetScheme === 'https' ? 'https' : 'http',
+      targetHost: item.targetHost,
+      targetPort: item.targetPort,
+      preserveHost: item.preserveHost,
+      webSocket: item.webSocket,
+      passRealIp: item.passRealIp,
+      enabled: item.enabled,
+      remark: item.remark ?? '',
+    })
+  }
+
+  function updateEditValue<K extends keyof ReverseProxyFormInput>(key: K, value: ReverseProxyFormInput[K]) {
+    setEditValues(current => current ? { ...current, [key]: value } : current)
+  }
+
+  async function saveEdit(id: number) {
+    const parsed = reverseProxySchema.safeParse(editValues)
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? '请检查反代规则')
+      return
+    }
+    await putJson(`reverse-proxies/${id}`, parsed.data)
+    toast.success('反代规则已更新，配置已自动应用')
+    setEditingId(undefined)
+    setEditValues(undefined)
+    load()
+  }
+
+  async function remove(id: number) {
+    await delJson(`reverse-proxies/${id}`)
+    toast.success('反代规则已删除，配置已自动应用')
+    load()
+  }
 
   function toggleLocalPort(checked: boolean) {
     setUseLocalPort(checked)
@@ -103,18 +148,83 @@ export function ReverseProxiesPage(){
         </form>
       </Card>
       <DataTable headers={['域名','目标','WebSocket','真实IP','状态','操作']} data-testid="reverse-proxies-table">
-        {items.map(x=>(
+        {items.map(x=>{
+          const editing = editingId === x.id && editValues
+          return (
           <TableRow key={x.id} data-testid={`reverse-row-${x.id}`}>
-            <TableCell>{x.domain?.domain || x.domainId}</TableCell>
-            <TableCell>{x.targetScheme}://{x.targetHost}:{x.targetPort}</TableCell>
-            <TableCell>{x.webSocket?'是':'否'}</TableCell>
-            <TableCell>{x.passRealIp?'是':'否'}</TableCell>
-            <TableCell><StatusBadge tone={x.enabled ? 'success' : 'neutral'}>{x.enabled?'启用':'禁用'}</StatusBadge></TableCell>
-            <TableCell><Button variant="outline" size="sm" onClick={()=>delJson(`reverse-proxies/${x.id}`).then(load)} data-testid={`reverse-delete-${x.id}`}>删除</Button></TableCell>
+            <TableCell data-testid={`reverse-domain-${x.id}`}>
+              {editing ? (
+                <Select value={String(editValues.domainId || '')} onValueChange={value => updateEditValue('domainId', Number(value))} disabled={domainsLoading || domains.length === 0}>
+                  <SelectTrigger className="w-44" data-testid={`reverse-edit-domain-${x.id}`}><SelectValue /></SelectTrigger>
+                  <SelectContent>{domains.map(d=><SelectItem key={d.id} value={String(d.id)}>{d.domain}</SelectItem>)}</SelectContent>
+                </Select>
+              ) : x.domain?.domain || x.domainId}
+            </TableCell>
+            <TableCell data-testid={`reverse-target-${x.id}`}>
+              {editing ? (
+                <div className="grid min-w-80 grid-cols-[96px_minmax(120px,1fr)_88px] gap-2" data-testid={`reverse-edit-target-${x.id}`}>
+                  <Select value={String(editValues.targetScheme)} onValueChange={value => updateEditValue('targetScheme', value === 'https' ? 'https' : 'http')}>
+                    <SelectTrigger data-testid={`reverse-edit-scheme-${x.id}`}><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="http">http</SelectItem>
+                      <SelectItem value="https">https</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input value={String(editValues.targetHost ?? '')} onChange={event => updateEditValue('targetHost', event.target.value)} data-testid={`reverse-edit-host-${x.id}`}/>
+                  <Input type="number" value={String(editValues.targetPort ?? '')} onChange={event => updateEditValue('targetPort', event.target.value)} data-testid={`reverse-edit-port-${x.id}`}/>
+                </div>
+              ) : `${x.targetScheme}://${x.targetHost}:${x.targetPort}`}
+            </TableCell>
+            <TableCell data-testid={`reverse-websocket-${x.id}`}>
+              {editing ? (
+                <InlineCheckbox checked={Boolean(editValues.webSocket)} onChange={value => updateEditValue('webSocket', value)} data-testid={`reverse-edit-websocket-${x.id}`} />
+              ) : x.webSocket?'是':'否'}
+            </TableCell>
+            <TableCell data-testid={`reverse-real-ip-${x.id}`}>
+              {editing ? (
+                <InlineCheckbox checked={Boolean(editValues.passRealIp)} onChange={value => updateEditValue('passRealIp', value)} data-testid={`reverse-edit-real-ip-${x.id}`} />
+              ) : x.passRealIp?'是':'否'}
+            </TableCell>
+            <TableCell data-testid={`reverse-status-${x.id}`}>
+              {editing ? (
+                <InlineCheckbox checked={Boolean(editValues.enabled)} onChange={value => updateEditValue('enabled', value)} data-testid={`reverse-edit-enabled-${x.id}`} />
+              ) : <StatusBadge tone={x.enabled ? 'success' : 'neutral'}>{x.enabled?'启用':'禁用'}</StatusBadge>}
+            </TableCell>
+            <TableCell data-testid={`reverse-actions-${x.id}`}>
+              {editing ? (
+                <div className="flex items-center gap-2" data-testid={`reverse-edit-actions-${x.id}`}>
+                  <Button variant="outline" size="sm" onClick={()=>void saveEdit(x.id)} data-testid={`reverse-save-${x.id}`}>
+                    <Save size={14} aria-hidden="true" />
+                    保存
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={()=>{ setEditingId(undefined); setEditValues(undefined) }} data-testid={`reverse-cancel-${x.id}`}>
+                    <X size={14} aria-hidden="true" />
+                    取消
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2" data-testid={`reverse-view-actions-${x.id}`}>
+                  <Button variant="outline" size="sm" onClick={()=>startEdit(x)} data-testid={`reverse-edit-${x.id}`}>
+                    <Pencil size={14} aria-hidden="true" />
+                    编辑
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={()=>void remove(x.id)} data-testid={`reverse-delete-${x.id}`}>
+                    <Trash2 size={14} aria-hidden="true" />
+                    删除
+                  </Button>
+                </div>
+              )}
+            </TableCell>
           </TableRow>
-        ))}
+        )})}
       </DataTable>
     </div>
+  )
+}
+
+function InlineCheckbox({ checked, onChange, 'data-testid': dataTestId }: { checked: boolean; onChange: (checked: boolean) => void; 'data-testid'?: string }) {
+  return (
+    <Checkbox checked={checked} onCheckedChange={value => onChange(Boolean(value))} data-testid={dataTestId} />
   )
 }
 
