@@ -72,6 +72,20 @@ func TestReloadStartsManagedProcessWhenPidFileIsEmpty(t *testing.T) {
 	}
 }
 
+func TestDockerfileBuildsNginxWithGzipSupport(t *testing.T) {
+	content, err := os.ReadFile("../../Dockerfile.amd64")
+	if err != nil {
+		t.Fatalf("read Dockerfile.amd64: %v", err)
+	}
+	dockerfile := string(content)
+	if !strings.Contains(dockerfile, "zlib1g-dev") {
+		t.Fatalf("expected nginx build dependencies to include zlib1g-dev")
+	}
+	if strings.Contains(dockerfile, "--without-http_gzip_module") {
+		t.Fatalf("nginx build must not disable the gzip module")
+	}
+}
+
 func fakeReloadNginxBinary(t *testing.T) (string, string) {
 	t.Helper()
 	dir := t.TempDir()

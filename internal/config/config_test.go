@@ -30,6 +30,12 @@ func TestLoadUsesDockerRuntimeBinaryPaths(t *testing.T) {
 	if !cfg.Runtime.StartChildren {
 		t.Fatalf("expected child processes to be enabled by default")
 	}
+	if cfg.Nginx.ClientMaxBodySize != "0" {
+		t.Fatalf("unexpected nginx client max body size: %q", cfg.Nginx.ClientMaxBodySize)
+	}
+	if !cfg.Nginx.GzipEnabled {
+		t.Fatalf("expected nginx gzip to be enabled by default")
+	}
 }
 
 func TestLoadKeepsRuntimeBinaryPathsHardcoded(t *testing.T) {

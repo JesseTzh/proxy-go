@@ -30,3 +30,7 @@ runtime:
   start_children: true
   nginx_binary: "/usr/local/bin/nginx"
   sing_box_binary: "/usr/local/bin/sing-box"
+
+nginx:
+  client_max_body_size: "0"
+  gzip_enabled: true

@@ -17,6 +17,7 @@ type Config struct {
 	Security SecurityConfig `koanf:"security"`
 	ACME     ACMEConfig     `koanf:"acme"`
 	Runtime  RuntimeConfig  `koanf:"runtime"`
+	Nginx    NginxConfig    `koanf:"nginx"`
 }
 
 type ServerConfig struct {
@@ -56,6 +57,11 @@ type RuntimeConfig struct {
 	StartChildren bool   `koanf:"start_children"`
 	NginxBinary   string `koanf:"nginx_binary"`
 	SingBoxBinary string `koanf:"sing_box_binary"`
+}
+
+type NginxConfig struct {
+	ClientMaxBodySize string `koanf:"client_max_body_size"`
+	GzipEnabled       bool   `koanf:"gzip_enabled"`
 }
 
 const (
@@ -123,6 +129,8 @@ func setDefaults(k *koanf.Koanf) {
 	_ = k.Set("runtime.start_children", true)
 	_ = k.Set("runtime.nginx_binary", DockerNginxBinary)
 	_ = k.Set("runtime.sing_box_binary", DockerSingBoxBinary)
+	_ = k.Set("nginx.client_max_body_size", "0")
+	_ = k.Set("nginx.gzip_enabled", true)
 }
 
 func (c Config) Validate() error {

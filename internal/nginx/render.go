@@ -8,30 +8,34 @@ import (
 )
 
 type RenderInput struct {
-	Snapshot         runtimeconfig.Snapshot
-	PidFile          string
-	AccessLog        string
-	ErrorLog         string
-	HTTPPort         int
-	HTTPSPort        int
-	GoInternalAddr   string
-	ManagedHTTPSAddr string
-	CertDir          string
+	Snapshot          runtimeconfig.Snapshot
+	PidFile           string
+	AccessLog         string
+	ErrorLog          string
+	HTTPPort          int
+	HTTPSPort         int
+	GoInternalAddr    string
+	ManagedHTTPSAddr  string
+	CertDir           string
+	ClientMaxBodySize string
+	GzipEnabled       bool
 }
 
 func Render(input RenderInput) (string, error) {
 	data := map[string]any{
-		"PidFile":          input.PidFile,
-		"AccessLog":        input.AccessLog,
-		"ErrorLog":         input.ErrorLog,
-		"HTTPPort":         input.HTTPPort,
-		"HTTPSPort":        input.HTTPSPort,
-		"GoInternalAddr":   input.GoInternalAddr,
-		"ManagedHTTPSAddr": input.ManagedHTTPSAddr,
-		"ManagementDomain": input.Snapshot.ManagementDomain,
-		"CertDir":          input.CertDir,
-		"Rules":            input.Snapshot.ReverseProxies,
-		"Inbounds":         input.Snapshot.ProxyInbounds,
+		"PidFile":           input.PidFile,
+		"AccessLog":         input.AccessLog,
+		"ErrorLog":          input.ErrorLog,
+		"HTTPPort":          input.HTTPPort,
+		"HTTPSPort":         input.HTTPSPort,
+		"GoInternalAddr":    input.GoInternalAddr,
+		"ManagedHTTPSAddr":  input.ManagedHTTPSAddr,
+		"ClientMaxBodySize": input.ClientMaxBodySize,
+		"GzipEnabled":       input.GzipEnabled,
+		"ManagementDomain":  input.Snapshot.ManagementDomain,
+		"CertDir":           input.CertDir,
+		"Rules":             input.Snapshot.ReverseProxies,
+		"Inbounds":          input.Snapshot.ProxyInbounds,
 	}
 	tpl, err := template.New("nginx").Funcs(template.FuncMap{"safeName": safeName}).Parse(nginxTemplate)
 	if err != nil {

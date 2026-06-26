@@ -36,15 +36,17 @@ func (s *Service) GenerateConfig() (string, error) {
 		return "", err
 	}
 	return Render(RenderInput{
-		Snapshot:         snapshot,
-		PidFile:          filepath.Join(s.cfg.Paths.NginxConfDir, "nginx.pid"),
-		AccessLog:        filepath.Join(s.cfg.Paths.LogDir, "nginx-access.log"),
-		ErrorLog:         filepath.Join(s.cfg.Paths.LogDir, "nginx-error.log"),
-		HTTPPort:         s.cfg.Server.PublicHTTPPort,
-		HTTPSPort:        s.cfg.Server.PublicHTTPSPort,
-		GoInternalAddr:   s.cfg.Server.InternalAddr,
-		ManagedHTTPSAddr: s.cfg.Server.ManagedHTTPSAddr,
-		CertDir:          s.cfg.Paths.CertDir,
+		Snapshot:          snapshot,
+		PidFile:           filepath.Join(s.cfg.Paths.NginxConfDir, "nginx.pid"),
+		AccessLog:         filepath.Join(s.cfg.Paths.LogDir, "nginx-access.log"),
+		ErrorLog:          filepath.Join(s.cfg.Paths.LogDir, "nginx-error.log"),
+		HTTPPort:          s.cfg.Server.PublicHTTPPort,
+		HTTPSPort:         s.cfg.Server.PublicHTTPSPort,
+		GoInternalAddr:    s.cfg.Server.InternalAddr,
+		ManagedHTTPSAddr:  s.cfg.Server.ManagedHTTPSAddr,
+		CertDir:           s.cfg.Paths.CertDir,
+		ClientMaxBodySize: s.cfg.Nginx.ClientMaxBodySize,
+		GzipEnabled:       s.cfg.Nginx.GzipEnabled,
 	})
 }
 
@@ -215,6 +217,15 @@ stream {
 http {
     include       mime.types;
     default_type  application/octet-stream;
+    client_max_body_size {{.ClientMaxBodySize}};
+    {{- if .GzipEnabled }}
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 1024;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml application/rss+xml image/svg+xml;
+    {{- end }}
     access_log {{.AccessLog}};
 
     map $http_upgrade $connection_upgrade {
