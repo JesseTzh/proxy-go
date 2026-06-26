@@ -105,20 +105,6 @@ export function VlessPage() {
     return getJson<InboundShare>(`inbounds/${item.id}/share`)
   }
 
-  async function copyShare(item: ProxyInbound) {
-    const key = `${item.id}-copy`
-    setBusy(key)
-    try {
-      const result = await fetchShare(item)
-      await navigator.clipboard.writeText(result.uri)
-      toast.success('代理链接已复制')
-    } catch {
-      toast.error('复制代理链接失败')
-    } finally {
-      setBusy(undefined)
-    }
-  }
-
   async function showShareQRCode(item: ProxyInbound) {
     const key = `${item.id}-qr`
     setBusy(key)
@@ -168,10 +154,6 @@ export function VlessPage() {
                 <Button variant="secondary" size="sm" disabled={busy === `${item.id}-config`} onClick={() => showConfig(item)} data-testid={`inbound-config-${item.id}`}>
                   <Code2 size={15} aria-hidden="true" />
                   配置详情
-                </Button>
-                <Button variant="secondary" size="sm" disabled={busy === `${item.id}-copy`} onClick={() => copyShare(item)}>
-                  <Copy size={15} aria-hidden="true" />
-                  复制链接
                 </Button>
                 <Button variant="secondary" size="sm" disabled={busy === `${item.id}-qr`} onClick={() => showShareQRCode(item)} data-testid={`inbound-show-qr-${item.id}`}>
                   <QrCode size={15} aria-hidden="true" />

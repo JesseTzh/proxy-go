@@ -256,6 +256,8 @@ function ProcessCard({
   const running = Boolean(status?.running)
   const actionCount = 3 + (onLogs ? 1 : 0) + (onConfig ? 1 : 0) + (onDebug ? 1 : 0)
   const actionColumns = actionCount >= 5 ? 'sm:grid-cols-5' : actionCount === 4 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'
+  const startDisabled = running || busy === `${process}-start`
+  const stopDisabled = !running || busy === `${process}-stop`
 
   return (
     <Card className="rounded-xl bg-white p-7 shadow-[var(--shadow-border)]" data-testid={dataTestId}>
@@ -269,11 +271,11 @@ function ProcessCard({
       </CardHeader>
 
       <div className={`mt-6 grid gap-3 ${actionColumns}`} data-testid={`${dataTestId}-actions`}>
-        <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" disabled={busy === `${process}-start`} onClick={() => onAction(process, 'start')} data-testid={`${dataTestId}-start`}>
+        <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" disabled={startDisabled} onClick={() => onAction(process, 'start')} data-testid={`${dataTestId}-start`}>
           <Play size={16} aria-hidden="true" />
           启动
         </Button>
-        <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" disabled={busy === `${process}-stop`} onClick={() => onAction(process, 'stop')} data-testid={`${dataTestId}-stop`}>
+        <Button className="h-10 bg-neutral-50 text-neutral-900 hover:bg-neutral-100" variant="secondary" disabled={stopDisabled} onClick={() => onAction(process, 'stop')} data-testid={`${dataTestId}-stop`}>
           <Power size={16} aria-hidden="true" />
           停止
         </Button>
