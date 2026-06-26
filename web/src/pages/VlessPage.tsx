@@ -1,10 +1,11 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Controller, useForm } from 'react-hook-form'
 import { Code2, Copy, Edit, Plus, Power, PowerOff, QrCode, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataTable } from '../components/DataTable'
 import { FormField } from '../components/FormField'
+import { JsonPreview } from '../components/JsonPreview'
 import { PageHeader } from '../components/PageHeader'
 import { StatusBadge } from '../components/StatusBadge'
 import { Button } from '@/components/ui/button'
@@ -16,8 +17,6 @@ import { useDomains } from '../hooks/useDomains'
 import { delJson, getJson, postJson, putJson } from '../lib/api'
 import { inboundSchema, type InboundFormInput, type InboundFormValues } from '../schemas/vless'
 import type { InboundShare, ProxyInbound } from '../types'
-
-const JsonView = lazy(() => import('@uiw/react-json-view'))
 
 const defaults: InboundFormValues = {
   template: 'vless-reality-vision',
@@ -170,13 +169,13 @@ export function VlessPage() {
                   <Code2 size={15} aria-hidden="true" />
                   配置详情
                 </Button>
-                <Button variant="secondary" size="sm" disabled={busy === `${item.id}-copy`} onClick={() => copyShare(item)} data-testid={`inbound-copy-link-${item.id}`}>
+                <Button variant="secondary" size="sm" disabled={busy === `${item.id}-copy`} onClick={() => copyShare(item)}>
                   <Copy size={15} aria-hidden="true" />
                   复制链接
                 </Button>
                 <Button variant="secondary" size="sm" disabled={busy === `${item.id}-qr`} onClick={() => showShareQRCode(item)} data-testid={`inbound-show-qr-${item.id}`}>
                   <QrCode size={15} aria-hidden="true" />
-                  二维码
+                  获取链接/二维码
                 </Button>
                 <Button variant="secondary" size="sm" disabled={busy === `${item.id}-delete`} onClick={() => action(item, 'delete', () => delJson(`inbounds/${item.id}`))} data-testid={`inbound-delete-${item.id}`}>
                   <Trash2 size={15} aria-hidden="true" />
@@ -206,13 +205,7 @@ export function VlessPage() {
           <DialogHeader>
             <DialogTitle>{configTitle} 配置详情</DialogTitle>
           </DialogHeader>
-          <div className="max-h-[70vh] overflow-auto rounded-md border border-neutral-200 bg-white p-3" data-testid="inbound-config-json">
-            {configDetails ? (
-              <Suspense fallback={<div className="text-sm text-muted-foreground" data-testid="inbound-config-json-loading">加载中…</div>}>
-                <JsonView value={configDetails} collapsed={false} displayDataTypes={false} data-testid="inbound-config-json-view" />
-              </Suspense>
-            ) : null}
-          </div>
+          {configDetails ? <JsonPreview value={configDetails} data-testid="inbound-config-json" /> : null}
         </DialogContent>
       </Dialog>
 
