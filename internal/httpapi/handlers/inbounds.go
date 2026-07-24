@@ -57,6 +57,10 @@ func CreateInbound(d Deps) gin.HandlerFunc {
 			response.Error(c, 400, err.Error())
 			return
 		}
+		if err := applyRuntimeAfterInboundChange(c, d); err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
 		d.Audit.Record("create_inbound", "inbound", fmt.Sprint(item.ID), item, security.NormalizeIP(c.Request.RemoteAddr), c.Request.UserAgent())
 		response.JSON(c, 200, toInboundResponse(item))
 	}
@@ -105,6 +109,10 @@ func UpdateInbound(d Deps) gin.HandlerFunc {
 			response.Error(c, 400, err.Error())
 			return
 		}
+		if err := applyRuntimeAfterInboundChange(c, d); err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
 		response.JSON(c, 200, toInboundResponse(item))
 	}
 }
@@ -117,6 +125,10 @@ func DeleteInbound(d Deps) gin.HandlerFunc {
 			return
 		}
 		if err := inboundService(d).Delete(id); err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
+		if err := applyRuntimeAfterInboundChange(c, d); err != nil {
 			response.Error(c, 500, err.Error())
 			return
 		}
@@ -135,8 +147,21 @@ func SetInboundEnabled(d Deps, enabled bool) gin.HandlerFunc {
 			response.Error(c, 500, err.Error())
 			return
 		}
+		if err := applyRuntimeAfterInboundChange(c, d); err != nil {
+			response.Error(c, 500, err.Error())
+			return
+		}
 		response.OK(c)
 	}
+}
+
+func applyRuntimeAfterInboundChange(c *gin.Context, d Deps) error {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+	if d.Nginx == nil || d.SingBox == nil {
+		return errors.New("runtime services are not configured")
+	}
+	return runtimeService(d).Apply(ctx)
 }
 
 func InboundConfig(d Deps) gin.HandlerFunc {
@@ -192,6 +217,10 @@ func inboundResponses(items []models.ProxyInbound) []inboundResponse {
 }
 
 func toInboundResponse(item models.ProxyInbound) inboundResponse {
+	routeSNI := item.RouteSNI
+	if item.Template == "vless-reality-vision" && item.RealityHandshakeServer != "" {
+		routeSNI = item.RealityHandshakeServer
+	}
 	return inboundResponse{
 		ID:                     item.ID,
 		Name:                   item.Name,
@@ -202,7 +231,7 @@ func toInboundResponse(item models.ProxyInbound) inboundResponse {
 		Network:                item.Network,
 		Security:               item.Security,
 		Flow:                   item.Flow,
-		RouteSNI:               item.RouteSNI,
+		RouteSNI:               routeSNI,
 		ListenAddr:             item.ListenAddr,
 		ListenPort:             item.ListenPort,
 		RealityHandshakeServer: item.RealityHandshakeServer,

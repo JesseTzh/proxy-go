@@ -260,6 +260,82 @@ func TestInboundShareRouteReturnsVLESSURI(t *testing.T) {
 	}
 }
 
+func TestUpdatingInboundSNIImmediatelyAppliesNginxAndSingBox(t *testing.T) {
+	cfg := testutil.NewConfig(t)
+	db := testutil.NewDB(t)
+	nginxBinary, _ := fakeNginxBinary(t)
+	singBoxBinary, singBoxLogPath := fakeSingBoxRuntimeBinary(t)
+	router := Router(Deps{
+		Cfg:       cfg,
+		DB:        db,
+		Audit:     audit.New(db),
+		ACME:      acme.New(db),
+		Nginx:     nginx.New(cfg, db, nginxBinary),
+		SingBox:   singbox.New(cfg, db, singBoxBinary),
+		Limiter:   security.NewLoginLimiter(),
+		Validator: validator.New(),
+	})
+	token := createSession(t, db)
+	if err := db.Create(&models.Domain{ID: 1, Domain: "proxy.example.com", Status: "enabled"}).Error; err != nil {
+		t.Fatalf("create domain: %v", err)
+	}
+	if err := db.Create(&models.ProxyInbound{
+		ID:                     1,
+		Name:                   "main",
+		Template:               "vless-reality-vision",
+		Protocol:               "vless",
+		DomainID:               1,
+		UUID:                   "11111111-1111-1111-1111-111111111111",
+		ListenAddr:             "127.0.0.1",
+		ListenPort:             31001,
+		Network:                "tcp",
+		Security:               "reality",
+		Flow:                   "xtls-rprx-vision",
+		RouteSNI:               "apple.com",
+		RealityPrivateKey:      "private",
+		RealityPublicKey:       "public",
+		RealityShortID:         "abcd1234",
+		RealityHandshakeServer: "apple.com",
+		RealityHandshakePort:   443,
+		RealityMaxTimeDiff:     60000,
+		Enabled:                true,
+	}).Error; err != nil {
+		t.Fatalf("create inbound: %v", err)
+	}
+
+	body := []byte(`{"template":"vless-reality-vision","name":"main","domainId":1,"realityHandshakeServer":"cloudflare.com"}`)
+	req := httptest.NewRequest(http.MethodPut, "/api/inbounds/1", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(&http.Cookie{Name: "proxy_go_session", Value: token})
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update inbound: expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	nginxConfig, err := os.ReadFile(filepath.Join(cfg.Paths.NginxConfDir, "nginx.conf"))
+	if err != nil {
+		t.Fatalf("read nginx config: %v", err)
+	}
+	if !bytes.Contains(nginxConfig, []byte("cloudflare.com 127.0.0.1:31001;")) || bytes.Contains(nginxConfig, []byte("apple.com 127.0.0.1:31001;")) {
+		t.Fatalf("nginx route SNI was not updated:\n%s", nginxConfig)
+	}
+	singBoxConfig, err := os.ReadFile(filepath.Join(cfg.Paths.SingBoxConfDir, "config.json"))
+	if err != nil {
+		t.Fatalf("read sing-box config: %v", err)
+	}
+	if !bytes.Contains(singBoxConfig, []byte(`"server_name": "cloudflare.com"`)) {
+		t.Fatalf("sing-box SNI was not updated:\n%s", singBoxConfig)
+	}
+	logData, err := os.ReadFile(singBoxLogPath)
+	if err != nil {
+		t.Fatalf("read fake sing-box log: %v", err)
+	}
+	if !bytes.Contains(logData, []byte("check -c")) {
+		t.Fatalf("sing-box config was not applied:\n%s", logData)
+	}
+}
+
 func TestReverseProxyMutationsApplyNginx(t *testing.T) {
 	cfg := testutil.NewConfig(t)
 	db := testutil.NewDB(t)
@@ -361,6 +437,18 @@ func fakeNginxBinary(t *testing.T) (string, string) {
 	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + strconv.Quote(logPath) + "\nexit 0\n"
 	if err := os.WriteFile(binary, []byte(script), 0755); err != nil {
 		t.Fatalf("write fake nginx: %v", err)
+	}
+	return binary, logPath
+}
+
+func fakeSingBoxRuntimeBinary(t *testing.T) (string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	binary := filepath.Join(dir, "sing-box")
+	logPath := filepath.Join(dir, "sing-box-args.log")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + strconv.Quote(logPath) + "\nexit 0\n"
+	if err := os.WriteFile(binary, []byte(script), 0755); err != nil {
+		t.Fatalf("write fake sing-box: %v", err)
 	}
 	return binary, logPath
 }

@@ -62,10 +62,10 @@ export function VlessPage() {
   async function submit(values: InboundFormValues) {
     if (editing) {
       await putJson(`inbounds/${editing.id}`, values)
-      toast.success('代理入口已更新')
+      toast.success('代理入口已更新，配置已自动应用')
     } else {
       await postJson('inbounds', values)
-      toast.success('已新增代理入口')
+      toast.success('已新增代理入口，配置已自动应用')
     }
     setOpen(false)
     setEditing(null)
@@ -77,7 +77,7 @@ export function VlessPage() {
     setBusy(key)
     try {
       await run()
-      toast.success('操作完成')
+      toast.success('操作完成，配置已自动应用')
       void load()
     } catch {
       // global error dialog handles API failures

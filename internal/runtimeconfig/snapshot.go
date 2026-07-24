@@ -1,6 +1,8 @@
 package runtimeconfig
 
 import (
+	"strings"
+
 	"github.com/proxy-go/proxy-go/internal/config"
 	"github.com/proxy-go/proxy-go/internal/models"
 	"gorm.io/gorm"
@@ -48,6 +50,11 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 	}
 	snapshot.ProxyInbounds = make([]ProxyInbound, 0, len(inbounds))
 	for _, inbound := range inbounds {
+		routeSNI := inbound.RouteSNI
+		if inbound.Template == "vless-reality-vision" && inbound.RealityHandshakeServer != "" {
+			// Reality uses the handshake SNI as the public stream routing key.
+			routeSNI = normalizeDNSName(inbound.RealityHandshakeServer)
+		}
 		snapshot.ProxyInbounds = append(snapshot.ProxyInbounds, ProxyInbound{
 			ID:                     inbound.ID,
 			Name:                   inbound.Name,
@@ -60,7 +67,7 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 			Network:                inbound.Network,
 			Security:               inbound.Security,
 			Flow:                   inbound.Flow,
-			RouteSNI:               inbound.RouteSNI,
+			RouteSNI:               routeSNI,
 			Password:               inbound.Password,
 			RealityPrivateKey:      inbound.RealityPrivateKey,
 			RealityPublicKey:       inbound.RealityPublicKey,
@@ -72,4 +79,8 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 	}
 
 	return snapshot, nil
+}
+
+func normalizeDNSName(name string) string {
+	return strings.TrimSuffix(strings.ToLower(strings.TrimSpace(name)), ".")
 }

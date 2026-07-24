@@ -404,7 +404,7 @@ func (s *Service) toRuntimeInbound(item models.ProxyInbound) runtimeconfig.Proxy
 		Network:                item.Network,
 		Security:               item.Security,
 		Flow:                   item.Flow,
-		RouteSNI:               item.RouteSNI,
+		RouteSNI:               effectiveRouteSNI(item),
 		Password:               item.Password,
 		RealityPrivateKey:      item.RealityPrivateKey,
 		RealityPublicKey:       item.RealityPublicKey,
@@ -479,8 +479,18 @@ func transportType(item models.ProxyInbound) string {
 }
 
 func shareSNI(item models.ProxyInbound) string {
+	if item.Template == "vless-reality-vision" && item.RealityHandshakeServer != "" {
+		return normalizeDNSName(item.RealityHandshakeServer)
+	}
 	if item.RouteSNI != "" {
-		return item.RouteSNI
+		return normalizeDNSName(item.RouteSNI)
 	}
 	return item.RealityHandshakeServer
+}
+
+func effectiveRouteSNI(item models.ProxyInbound) string {
+	if item.Template == "vless-reality-vision" && item.RealityHandshakeServer != "" {
+		return normalizeDNSName(item.RealityHandshakeServer)
+	}
+	return normalizeDNSName(item.RouteSNI)
 }

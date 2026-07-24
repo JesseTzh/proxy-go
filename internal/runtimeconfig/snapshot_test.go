@@ -86,3 +86,30 @@ func TestLoadIncludesEnabledResourcesAndSystemSetting(t *testing.T) {
 		t.Fatalf("private key = %q", got)
 	}
 }
+
+func TestLoadDerivesVLESSRouteSNIFromRealityHandshakeServer(t *testing.T) {
+	db := testutil.NewDB(t)
+	domain := models.Domain{Domain: "proxy.example.com", Status: "enabled"}
+	if err := db.Create(&domain).Error; err != nil {
+		t.Fatalf("create domain: %v", err)
+	}
+	if err := db.Create(&models.ProxyInbound{
+		DomainID:               domain.ID,
+		Template:               "vless-reality-vision",
+		ListenAddr:             "127.0.0.1",
+		ListenPort:             31001,
+		RouteSNI:               "apple.com",
+		RealityHandshakeServer: " CloudFlare.COM. ",
+		Enabled:                true,
+	}).Error; err != nil {
+		t.Fatalf("create inbound: %v", err)
+	}
+
+	snapshot, err := Load(db)
+	if err != nil {
+		t.Fatalf("load snapshot: %v", err)
+	}
+	if got := snapshot.ProxyInbounds[0].RouteSNI; got != "cloudflare.com" {
+		t.Fatalf("route sni = %q, want cloudflare.com", got)
+	}
+}
