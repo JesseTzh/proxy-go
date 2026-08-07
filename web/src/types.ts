@@ -1,5 +1,6 @@
 export type Certificate = { id: number; primaryDomain: string; status: string; expiresAt?: string; errorMessage?: string; autoRenew: boolean }
 export type Domain = { id: number; domain: string; status: string; remark: string; certificateId?: number; certificate?: Certificate; createdAt: string }
+export type SystemSettings = { managementDomain?: string; acmeEmail?: string; initialPortEnabled?: boolean }
 export type ReverseProxy = { id: number; domainId: number; domain?: Domain; targetScheme: string; targetHost: string; targetPort: number; preserveHost: boolean; webSocket: boolean; passRealIp: boolean; enabled: boolean; remark: string }
 export type ProxyInbound = { id: number; name: string; template: 'vless-reality-vision' | 'anytls'; protocol: string; domainId: number; domain?: Domain; network: string; security: string; flow: string; routeSni: string; listenAddr: string; listenPort: number; realityHandshakeServer: string; enabled: boolean }
 export type InboundShare = { name: string; domain: string; uri: string }

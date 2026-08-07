@@ -1,6 +1,7 @@
 package reverseproxy
 
 import (
+	"errors"
 	"github.com/proxy-go/proxy-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -19,6 +20,9 @@ func (s *Service) List() ([]models.ReverseProxyRule, error) {
 }
 
 func (s *Service) Create(rule models.ReverseProxyRule) (models.ReverseProxyRule, error) {
+	if err := s.validateDomainMapping(rule.DomainID, 0); err != nil {
+		return rule, err
+	}
 	if rule.TargetScheme == "" {
 		rule.TargetScheme = "http"
 	}
@@ -35,6 +39,9 @@ func (s *Service) Update(id uint, rule models.ReverseProxyRule) (models.ReverseP
 		return existing, err
 	}
 	rule.ID = existing.ID
+	if err := s.validateDomainMapping(rule.DomainID, existing.ID); err != nil {
+		return rule, err
+	}
 	if rule.TargetScheme == "" {
 		rule.TargetScheme = "http"
 	}
@@ -43,6 +50,35 @@ func (s *Service) Update(id uint, rule models.ReverseProxyRule) (models.ReverseP
 	}
 	_ = s.db.Preload("Domain").First(&rule, rule.ID).Error
 	return rule, nil
+}
+
+func (s *Service) validateDomainMapping(domainID, ruleID uint) error {
+	var domain models.Domain
+	if err := s.db.First(&domain, domainID).Error; err != nil {
+		return err
+	}
+	var setting models.SystemSetting
+	if err := s.db.First(&setting, 1).Error; err == nil && setting.ManagementDomain != "" && domain.Domain == setting.ManagementDomain {
+		return errors.New("domain is reserved for management panel")
+	}
+	var count int64
+	query := s.db.Model(&models.ReverseProxyRule{}).Where("domain_id = ?", domainID)
+	if ruleID != 0 {
+		query = query.Where("id <> ?", ruleID)
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("domain is already mapped")
+	}
+	if err := s.db.Model(&models.ProxyInbound{}).Where("domain_id = ?", domainID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("domain is already mapped")
+	}
+	return nil
 }
 
 func (s *Service) Delete(id uint) error {

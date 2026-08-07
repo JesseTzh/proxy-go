@@ -42,6 +42,26 @@ func TestDeleteRejectsReferencedDomain(t *testing.T) {
 	}
 }
 
+func TestSetManagementDomainAndRejectDelete(t *testing.T) {
+	db := testutil.NewDB(t)
+	svc := New(db)
+	domain := models.Domain{Domain: "admin.example.com", Status: "enabled"}
+	if err := db.Create(&domain).Error; err != nil {
+		t.Fatalf("create domain: %v", err)
+	}
+	got, err := svc.SetManagementDomain(domain.ID)
+	if err != nil || got != domain.Domain {
+		t.Fatalf("set management domain: %q, %v", got, err)
+	}
+	var setting models.SystemSetting
+	if err := db.First(&setting, 1).Error; err != nil || setting.ManagementDomain != domain.Domain {
+		t.Fatalf("management setting not updated: %#v, %v", setting, err)
+	}
+	if err := svc.Delete(domain.ID); err == nil || err.Error() != "management domain cannot be deleted" {
+		t.Fatalf("expected management domain delete error, got %v", err)
+	}
+}
+
 func TestUsageCountsReverseProxyAndInboundReferences(t *testing.T) {
 	db := testutil.NewDB(t)
 	svc := New(db)

@@ -70,6 +70,9 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (models.ProxyIn
 	if err := s.validateRouteSNIUniqueness(&item); err != nil {
 		return item, err
 	}
+	if err := s.validateDomainMapping(item.DomainID, 0); err != nil {
+		return item, err
+	}
 	if err := s.db.Create(&item).Error; err != nil {
 		return item, err
 	}
@@ -101,6 +104,9 @@ func (s *Service) Update(ctx context.Context, id uint, req CreateRequest) (model
 		return item, err
 	}
 	if err := s.validateRouteSNIUniqueness(&item); err != nil {
+		return item, err
+	}
+	if err := s.validateDomainMapping(item.DomainID, item.ID); err != nil {
 		return item, err
 	}
 	if err := s.db.Save(&item).Error; err != nil {
@@ -367,6 +373,35 @@ func (s *Service) validateStreamSNI(item *models.ProxyInbound) error {
 	}
 	if normalizeDNSName(setting.ManagementDomain) == handshakeServer {
 		return errors.New("realityHandshakeServer must not be the management domain")
+	}
+	return nil
+}
+
+func (s *Service) validateDomainMapping(domainID, inboundID uint) error {
+	var domain models.Domain
+	if err := s.db.First(&domain, domainID).Error; err != nil {
+		return err
+	}
+	var setting models.SystemSetting
+	if err := s.db.First(&setting, 1).Error; err == nil && normalizeDNSName(setting.ManagementDomain) == normalizeDNSName(domain.Domain) && setting.ManagementDomain != "" {
+		return errors.New("domain is reserved for management panel")
+	}
+	var count int64
+	query := s.db.Model(&models.ProxyInbound{}).Where("domain_id = ?", domainID)
+	if inboundID != 0 {
+		query = query.Where("id <> ?", inboundID)
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("domain is already mapped")
+	}
+	if err := s.db.Model(&models.ReverseProxyRule{}).Where("domain_id = ?", domainID).Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("domain is already mapped")
 	}
 	return nil
 }

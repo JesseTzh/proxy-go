@@ -95,11 +95,40 @@ func DeleteDomain(d Deps) gin.HandlerFunc {
 				response.Error(c, 409, err.Error())
 				return
 			}
+			if err.Error() == "management domain cannot be deleted" {
+				response.Error(c, 409, err.Error())
+				return
+			}
 			response.Error(c, 400, err.Error())
 			return
 		}
 		d.Audit.Record("delete_domain", "domain", fmt.Sprint(id), nil, security.NormalizeIP(c.Request.RemoteAddr), c.Request.UserAgent())
 		response.OK(c)
+	}
+}
+
+func SetDomainAsManagement(d Deps) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := idParam(c)
+		if err != nil {
+			response.Error(c, 400, "invalid id")
+			return
+		}
+		domain, err := domainssvc.New(d.DB).SetManagementDomain(id)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				response.Error(c, 404, "not found")
+				return
+			}
+			if err.Error() == "domain is already mapped" {
+				response.Error(c, 409, err.Error())
+				return
+			}
+			response.Error(c, 500, err.Error())
+			return
+		}
+		d.Audit.Record("set_management_domain", "domain", fmt.Sprint(id), gin.H{"domain": domain}, security.NormalizeIP(c.Request.RemoteAddr), c.Request.UserAgent())
+		response.JSON(c, 200, gin.H{"domain": domain})
 	}
 }
 

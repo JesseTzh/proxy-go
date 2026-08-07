@@ -71,6 +71,13 @@ func (s *Service) Update(id uint, remark, status string, certificateID *uint) (m
 }
 
 func (s *Service) Delete(id uint) error {
+	var setting models.SystemSetting
+	if err := s.db.First(&setting, 1).Error; err == nil {
+		var item models.Domain
+		if err := s.db.First(&item, id).Error; err == nil && setting.ManagementDomain != "" && item.Domain == setting.ManagementDomain {
+			return errors.New("management domain cannot be deleted")
+		}
+	}
 	usage, err := s.Usage(id)
 	if err != nil {
 		return err
@@ -79,6 +86,30 @@ func (s *Service) Delete(id uint) error {
 		return errors.New("domain is in use")
 	}
 	return s.db.Delete(&models.Domain{}, id).Error
+}
+
+func (s *Service) SetManagementDomain(id uint) (string, error) {
+	var item models.Domain
+	if err := s.db.First(&item, id).Error; err != nil {
+		return "", err
+	}
+	var count int64
+	if err := s.db.Model(&models.ReverseProxyRule{}).Where("domain_id = ?", id).Count(&count).Error; err != nil {
+		return "", err
+	}
+	if count > 0 {
+		return "", errors.New("domain is already mapped")
+	}
+	if err := s.db.Model(&models.ProxyInbound{}).Where("domain_id = ?", id).Count(&count).Error; err != nil {
+		return "", err
+	}
+	if count > 0 {
+		return "", errors.New("domain is already mapped")
+	}
+	if err := s.db.Model(&models.SystemSetting{}).Where("id = 1").Update("management_domain", item.Domain).Error; err != nil {
+		return "", err
+	}
+	return item.Domain, nil
 }
 
 func (s *Service) Usage(id uint) (Usage, error) {

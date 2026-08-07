@@ -31,6 +31,7 @@ func Router(d Deps) *gin.Engine {
 	protected.GET("/domains/:id", handlers.GetDomain(d))
 	protected.PUT("/domains/:id", handlers.UpdateDomain(d))
 	protected.DELETE("/domains/:id", handlers.DeleteDomain(d))
+	protected.POST("/domains/:id/management", handlers.SetDomainAsManagement(d))
 	protected.POST("/domains/:id/dns-check", handlers.DNSCheck(d))
 	protected.GET("/domains/:id/usage", handlers.DomainUsage(d))
 	protected.POST("/domains/:id/certificate/issue", handlers.IssueDomainCertificate(d))

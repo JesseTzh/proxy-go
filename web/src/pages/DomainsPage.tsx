@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { BadgeCheck, FileKey2, RefreshCw, Search, Trash2 } from 'lucide-react'
+import { BadgeCheck, FileKey2, RefreshCw, Search, ShieldCheck, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataTable } from '../components/DataTable'
 import { FormField } from '../components/FormField'
@@ -13,17 +13,25 @@ import { Input } from '@/components/ui/input'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { delJson, getJson, postJson } from '../lib/api'
 import { domainSchema, type DomainFormValues } from '../schemas/domain'
-import type { Domain } from '../types'
+import type { Domain, SystemSettings } from '../types'
 
 export function DomainsPage() {
   const [items, setItems] = useState<Domain[]>([])
+  const [managementDomain, setManagementDomain] = useState('')
   const [busy, setBusy] = useState<string>()
   const { register, handleSubmit, reset, formState: { errors } } = useForm<DomainFormValues>({
     resolver: zodResolver(domainSchema),
     defaultValues: { domain: '' },
   })
 
-  const load = () => getJson<Domain[]>('domains').then(setItems)
+  const load = async () => {
+    const [domains, settings] = await Promise.all([
+      getJson<Domain[]>('domains'),
+      getJson<{ settings?: SystemSettings }>('settings'),
+    ])
+    setItems(domains)
+    setManagementDomain(settings.settings?.managementDomain ?? '')
+  }
 
   useEffect(() => {
     void load()
@@ -36,7 +44,7 @@ export function DomainsPage() {
     void load()
   }
 
-  async function domainAction(domain: Domain, action: 'dns' | 'issue' | 'renew' | 'delete-cert' | 'delete-domain') {
+  async function domainAction(domain: Domain, action: 'dns' | 'issue' | 'renew' | 'delete-cert' | 'delete-domain' | 'management') {
     const key = `${domain.id}-${action}`
     setBusy(key)
     try {
@@ -59,6 +67,11 @@ export function DomainsPage() {
       if (action === 'delete-domain') {
         await delJson(`domains/${domain.id}`)
         toast.success('已删除域名')
+      }
+      if (action === 'management') {
+        await postJson(`domains/${domain.id}/management`)
+        setManagementDomain(domain.domain)
+        toast.success('已设为管理面板域名')
       }
       void load()
     } catch {
@@ -87,7 +100,10 @@ export function DomainsPage() {
           return (
             <TableRow key={item.id} data-testid={`domain-row-${item.id}`}>
               <TableCell>
-                <div className="font-medium">{item.domain}</div>
+                <div className="font-medium flex items-center gap-2">
+                  {item.domain}
+                  {item.domain === managementDomain ? <span className="inline-flex items-center gap-1 text-xs text-emerald-700" data-testid={`domain-management-badge-${item.id}`}><ShieldCheck size={14} />管理面板</span> : null}
+                </div>
                 {item.remark ? <div className="text-xs text-slate-500 mt-1">{item.remark}</div> : null}
               </TableCell>
               <TableCell><StatusBadge tone={item.status === 'enabled' ? 'success' : 'neutral'}>{item.status}</StatusBadge></TableCell>
@@ -124,6 +140,12 @@ export function DomainsPage() {
                         删除证书
                       </Button>
                     </>
+                  ) : null}
+                  {item.domain !== managementDomain ? (
+                    <Button variant="outline" size="sm" disabled={busy === `${item.id}-management`} onClick={() => domainAction(item, 'management')} data-testid={`domain-set-management-${item.id}`}>
+                      <ShieldCheck size={15} aria-hidden="true" />
+                      设为面板域名
+                    </Button>
                   ) : null}
                   <Button variant="outline" size="sm" disabled={busy === `${item.id}-delete-domain`} onClick={() => domainAction(item, 'delete-domain')} data-testid={`domain-delete-${item.id}`}>
                     <Trash2 size={15} aria-hidden="true" />
