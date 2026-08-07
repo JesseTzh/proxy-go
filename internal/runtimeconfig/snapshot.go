@@ -25,6 +25,12 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 		return snapshot, err
 	}
 	snapshot.ManagementDomain = setting.ManagementDomain
+	if snapshot.ManagementDomain != "" {
+		var managementDomain models.Domain
+		if err := db.Preload("Certificate").Where("lower(domain) = ?", normalizeDNSName(snapshot.ManagementDomain)).First(&managementDomain).Error; err == nil && managementDomain.Certificate != nil && managementDomain.Certificate.Status == "valid" {
+			snapshot.ManagementCertDomain = managementDomain.Domain
+		}
+	}
 	snapshot.SingBoxDebugEnabled = setting.SingBoxDebugEnabled
 
 	var rules []models.ReverseProxyRule

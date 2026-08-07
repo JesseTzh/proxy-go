@@ -10,7 +10,8 @@ import (
 func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 	out, err := Render(RenderInput{
 		Snapshot: runtimeconfig.Snapshot{
-			ManagementDomain: "admin.example.com",
+			ManagementDomain:     "admin.example.com",
+			ManagementCertDomain: "admin.example.com",
 			ReverseProxies: []runtimeconfig.ReverseProxy{{
 				Domain:       "app.example.com",
 				TargetScheme: "http",
@@ -53,6 +54,7 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 	for _, want := range []string{
 		"proxy_pass http://127.0.0.1:30081;",
 		"ssl_certificate /certs/app.example.com/fullchain.pem;",
+		"ssl_certificate /certs/admin.example.com/fullchain.pem;",
 		"listen 127.0.0.1:30443 ssl;",
 		"listen 443;",
 		"client_max_body_size 0;",

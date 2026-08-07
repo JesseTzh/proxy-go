@@ -161,6 +161,20 @@ func (a *Application) registerCron(ac *acme.Service) {
 	_, _ = a.cron.AddFunc("0 4 * * *", func() {
 		if err := ac.RenewDueCertificates(time.Now()); err != nil {
 			slog.Warn("certificate renewal check failed", "error", err)
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := a.nginx.Apply(ctx); err != nil {
+			slog.Warn("nginx reload after certificate renewal failed", "error", err)
+			return
+		}
+		now := time.Now()
+		if err := a.db.Model(&models.SystemSetting{}).Where("id=1").Updates(map[string]any{
+			"last_certificate_renewal_at": &now,
+			"last_nginx_reload_at":        &now,
+		}).Error; err != nil {
+			slog.Warn("save certificate renewal timestamp failed", "error", err)
 		}
 	})
 }

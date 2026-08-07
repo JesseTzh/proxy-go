@@ -23,19 +23,20 @@ type RenderInput struct {
 
 func Render(input RenderInput) (string, error) {
 	data := map[string]any{
-		"PidFile":           input.PidFile,
-		"AccessLog":         input.AccessLog,
-		"ErrorLog":          input.ErrorLog,
-		"HTTPPort":          input.HTTPPort,
-		"HTTPSPort":         input.HTTPSPort,
-		"GoInternalAddr":    input.GoInternalAddr,
-		"ManagedHTTPSAddr":  input.ManagedHTTPSAddr,
-		"ClientMaxBodySize": input.ClientMaxBodySize,
-		"GzipEnabled":       input.GzipEnabled,
-		"ManagementDomain":  input.Snapshot.ManagementDomain,
-		"CertDir":           input.CertDir,
-		"Rules":             input.Snapshot.ReverseProxies,
-		"Inbounds":          input.Snapshot.ProxyInbounds,
+		"PidFile":              input.PidFile,
+		"AccessLog":            input.AccessLog,
+		"ErrorLog":             input.ErrorLog,
+		"HTTPPort":             input.HTTPPort,
+		"HTTPSPort":            input.HTTPSPort,
+		"GoInternalAddr":       input.GoInternalAddr,
+		"ManagedHTTPSAddr":     input.ManagedHTTPSAddr,
+		"ClientMaxBodySize":    input.ClientMaxBodySize,
+		"GzipEnabled":          input.GzipEnabled,
+		"ManagementDomain":     input.Snapshot.ManagementDomain,
+		"ManagementCertDomain": input.Snapshot.ManagementCertDomain,
+		"CertDir":              input.CertDir,
+		"Rules":                input.Snapshot.ReverseProxies,
+		"Inbounds":             input.Snapshot.ProxyInbounds,
 	}
 	tpl, err := template.New("nginx").Funcs(template.FuncMap{"safeName": safeName}).Parse(nginxTemplate)
 	if err != nil {

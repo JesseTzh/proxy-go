@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/proxy-go/proxy-go/internal/httpapi/response"
+	"github.com/proxy-go/proxy-go/internal/models"
 	"github.com/proxy-go/proxy-go/internal/security"
 	domainssvc "github.com/proxy-go/proxy-go/internal/services/domains"
 	"gorm.io/gorm"
@@ -126,6 +129,14 @@ func SetDomainAsManagement(d Deps) gin.HandlerFunc {
 			}
 			response.Error(c, 500, err.Error())
 			return
+		}
+		if d.Nginx != nil {
+			if err := d.Nginx.Apply(context.Background()); err != nil {
+				response.Error(c, 500, err.Error())
+				return
+			}
+			now := time.Now()
+			_ = d.DB.Model(&models.SystemSetting{}).Where("id=1").Update("last_nginx_reload_at", &now).Error
 		}
 		d.Audit.Record("set_management_domain", "domain", fmt.Sprint(id), gin.H{"domain": domain}, security.NormalizeIP(c.Request.RemoteAddr), c.Request.UserAgent())
 		response.JSON(c, 200, gin.H{"domain": domain})

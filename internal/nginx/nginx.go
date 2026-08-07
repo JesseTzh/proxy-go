@@ -248,8 +248,8 @@ http {
     server {
         listen {{.ManagedHTTPSAddr}} ssl;
         server_name {{if .ManagementDomain}}{{.ManagementDomain}}{{else}}_{{end}};
-        ssl_certificate {{.CertDir}}/default/fullchain.pem;
-        ssl_certificate_key {{.CertDir}}/default/privkey.pem;
+        ssl_certificate {{.CertDir}}/{{if .ManagementCertDomain}}{{.ManagementCertDomain}}{{else}}default{{end}}/fullchain.pem;
+        ssl_certificate_key {{.CertDir}}/{{if .ManagementCertDomain}}{{.ManagementCertDomain}}{{else}}default{{end}}/privkey.pem;
         location / {
             proxy_pass http://{{.GoInternalAddr}};
             proxy_set_header Host $host;
