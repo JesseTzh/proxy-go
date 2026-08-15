@@ -7,12 +7,12 @@ import (
 	"time"
 )
 
-func TestManagedProcessCapturesBoundedOutputAndExitError(t *testing.T) {
+func TestManagedProcessCapturesOutputAndExitError(t *testing.T) {
 	proc := &ManagedProcess{
 		Name:          "test-process",
 		Path:          "/bin/sh",
-		Args:          []string{"-c", "printf 'old-output-that-should-be-truncated'; printf 'stderr-detail\\n' >&2; exit 7"},
-		LogLimitBytes: 64,
+		Args:          []string{"-c", "printf 'stdout-detail\\n'; printf 'stderr-detail\\n' >&2; exit 7"},
+		LogLimitBytes: 1024,
 	}
 
 	if err := proc.Start(context.Background()); err != nil {
@@ -21,14 +21,35 @@ func TestManagedProcessCapturesBoundedOutputAndExitError(t *testing.T) {
 	waitForStopped(t, proc)
 
 	logs := strings.Join(proc.Logs(), "\n")
-	if strings.Contains(logs, "old-output-that-should-be-truncated") {
-		t.Fatalf("expected old output to be truncated, logs:\n%s", logs)
+	if !strings.Contains(logs, "stdout-detail") {
+		t.Fatalf("expected stdout output in logs:\n%s", logs)
 	}
 	if !strings.Contains(logs, "stderr-detail") {
 		t.Fatalf("expected stderr output in logs:\n%s", logs)
 	}
 	if !strings.Contains(logs, "process exited: exit status 7") {
 		t.Fatalf("expected exit error in logs:\n%s", logs)
+	}
+}
+
+func TestBoundedLogKeepsNewestOutput(t *testing.T) {
+	log := &boundedLog{limit: 64}
+	log.append("oldest-marker\n" + strings.Repeat("old-output\n", 20))
+	log.append("stderr-detail\n")
+	log.append("process exited: exit status 7\n")
+
+	logs := strings.Join(log.lines(), "\n")
+	if strings.Contains(logs, "oldest-marker") {
+		t.Fatalf("expected the oldest output to be truncated, logs:\n%s", logs)
+	}
+	if len(log.buf) > log.limit {
+		t.Fatalf("expected at most %d buffered bytes, got %d", log.limit, len(log.buf))
+	}
+	if !strings.Contains(logs, "stderr-detail") {
+		t.Fatalf("expected recent stderr output in logs:\n%s", logs)
+	}
+	if !strings.Contains(logs, "process exited: exit status 7") {
+		t.Fatalf("expected recent exit error in logs:\n%s", logs)
 	}
 }
 
