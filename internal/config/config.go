@@ -31,14 +31,15 @@ type ServerConfig struct {
 }
 
 type PathsConfig struct {
-	DataDir        string `koanf:"data_dir"`
-	LogDir         string `koanf:"log_dir"`
-	DBFile         string `koanf:"db_file"`
-	CertDir        string `koanf:"cert_dir"`
-	BinDir         string `koanf:"bin_dir"`
-	NginxConfDir   string `koanf:"nginx_conf_dir"`
-	SingBoxConfDir string `koanf:"sing_box_conf_dir"`
-	WebRoot        string `koanf:"web_root"`
+	DataDir          string `koanf:"data_dir"`
+	LogDir           string `koanf:"log_dir"`
+	DBFile           string `koanf:"db_file"`
+	CertDir          string `koanf:"cert_dir"`
+	BinDir           string `koanf:"bin_dir"`
+	NginxConfDir     string `koanf:"nginx_conf_dir"`
+	SingBoxConfDir   string `koanf:"sing_box_conf_dir"`
+	WireGuardConfDir string `koanf:"wireguard_conf_dir"`
+	WebRoot          string `koanf:"web_root"`
 }
 
 type SecurityConfig struct {
@@ -57,6 +58,8 @@ type RuntimeConfig struct {
 	StartChildren bool   `koanf:"start_children"`
 	NginxBinary   string `koanf:"nginx_binary"`
 	SingBoxBinary string `koanf:"sing_box_binary"`
+	WGQuickBinary string `koanf:"wg_quick_binary"`
+	WGBinary      string `koanf:"wg_binary"`
 }
 
 type NginxConfig struct {
@@ -67,6 +70,8 @@ type NginxConfig struct {
 const (
 	DockerNginxBinary   = "/usr/local/bin/nginx"
 	DockerSingBoxBinary = "/usr/local/bin/sing-box"
+	DockerWGQuickBinary = "/usr/bin/wg-quick"
+	DockerWGBinary      = "/usr/bin/wg"
 	DockerWebRoot       = "/usr/share/proxy-go/web"
 )
 
@@ -94,6 +99,8 @@ func Load(path string) (*Config, error) {
 	}
 	_ = k.Set("runtime.nginx_binary", DockerNginxBinary)
 	_ = k.Set("runtime.sing_box_binary", DockerSingBoxBinary)
+	_ = k.Set("runtime.wg_quick_binary", DockerWGQuickBinary)
+	_ = k.Set("runtime.wg_binary", DockerWGBinary)
 	_ = k.Set("paths.web_root", DockerWebRoot)
 
 	var cfg Config
@@ -121,6 +128,7 @@ func setDefaults(k *koanf.Koanf) {
 	_ = k.Set("paths.bin_dir", "/var/lib/proxy-go/bin")
 	_ = k.Set("paths.nginx_conf_dir", "/var/lib/proxy-go/nginx")
 	_ = k.Set("paths.sing_box_conf_dir", "/var/lib/proxy-go/sing-box")
+	_ = k.Set("paths.wireguard_conf_dir", "/var/lib/proxy-go/wireguard")
 	_ = k.Set("paths.web_root", DockerWebRoot)
 	_ = k.Set("security.session_ttl_hours", 24)
 	_ = k.Set("security.bcrypt_cost", 12)
@@ -129,6 +137,8 @@ func setDefaults(k *koanf.Koanf) {
 	_ = k.Set("runtime.start_children", true)
 	_ = k.Set("runtime.nginx_binary", DockerNginxBinary)
 	_ = k.Set("runtime.sing_box_binary", DockerSingBoxBinary)
+	_ = k.Set("runtime.wg_quick_binary", DockerWGQuickBinary)
+	_ = k.Set("runtime.wg_binary", DockerWGBinary)
 	_ = k.Set("nginx.client_max_body_size", "0")
 	_ = k.Set("nginx.gzip_enabled", true)
 }

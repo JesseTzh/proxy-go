@@ -9,9 +9,14 @@ const expectations = [
   ['Proxy-Go', 'centered product name'],
   ['text-center', 'centered product name alignment'],
   ['data-testid="login-page"', 'login page test id'],
+  ['data-testid="login-panel"', 'login panel test id'],
+  ['data-testid="login-card"', 'login card test id'],
   ['data-testid="login-form"', 'login form test id'],
+  ['data-testid="login-product-name"', 'product name test id'],
   ['data-testid="login-password-input"', 'password input test id'],
   ['data-testid="login-submit-button"', 'submit button test id'],
+  ['data-testid="login-version"', 'version test id'],
+  ['__APP_VERSION__', 'build version'],
 ]
 
 const missing = expectations.filter(([needle]) => !source.includes(needle))

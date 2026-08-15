@@ -54,6 +54,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
       curl \
+      iproute2 \
+      iptables \
+      wireguard-tools \
       build-essential \
       libpcre2-dev \
       zlib1g-dev \
@@ -169,6 +172,7 @@ RUN mkdir -p \
       /var/lib/proxy-go/nginx \
       /var/lib/proxy-go/nginx/logs \
       /var/lib/proxy-go/sing-box \
+      /var/lib/proxy-go/wireguard \
       /var/log/proxy-go \
       /tmp/nginx/client_body \
       /tmp/nginx/proxy \
@@ -195,6 +199,7 @@ DATA_DIR="/var/lib/proxy-go"
 LOG_DIR="/var/log/proxy-go"
 NGINX_CONF_DIR="${DATA_DIR}/nginx"
 SING_BOX_CONF_DIR="${DATA_DIR}/sing-box"
+WIREGUARD_CONF_DIR="${DATA_DIR}/wireguard"
 
 mkdir -p \
   "${DATA_DIR}/bin" \
@@ -202,6 +207,7 @@ mkdir -p \
   "${NGINX_CONF_DIR}" \
   "${NGINX_CONF_DIR}/logs" \
   "${SING_BOX_CONF_DIR}" \
+  "${WIREGUARD_CONF_DIR}" \
   "${LOG_DIR}" \
   /tmp/nginx/client_body \
   /tmp/nginx/proxy \
@@ -232,7 +238,7 @@ WORKDIR /var/lib/proxy-go
 # 80: HTTP-01 / HTTP 跳转
 # 443: sing-box 代理公网入口，普通 HTTPS 回落到内部 Nginx
 # 30080: 初始管理端口
-EXPOSE 80/tcp 443/tcp 30080/tcp
+EXPOSE 80/tcp 443/tcp 30080/tcp 51820/udp
 
 VOLUME ["/var/lib/proxy-go", "/var/log/proxy-go"]
 

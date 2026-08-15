@@ -19,6 +19,7 @@ type Service struct {
 type Usage struct {
 	ReverseProxyRules int64 `json:"reverseProxyRules"`
 	ProxyInbounds     int64 `json:"proxyInbounds"`
+	WireGuardEndpoint int64 `json:"wireGuardEndpoint"`
 }
 
 type DNSResult struct {
@@ -82,7 +83,7 @@ func (s *Service) Delete(id uint) error {
 	if err != nil {
 		return err
 	}
-	if usage.ReverseProxyRules > 0 || usage.ProxyInbounds > 0 {
+	if usage.ReverseProxyRules > 0 || usage.ProxyInbounds > 0 || usage.WireGuardEndpoint > 0 {
 		return errors.New("domain is in use")
 	}
 	return s.db.Delete(&models.Domain{}, id).Error
@@ -118,6 +119,9 @@ func (s *Service) Usage(id uint) (Usage, error) {
 		return usage, err
 	}
 	if err := s.db.Model(&models.ProxyInbound{}).Where("domain_id=?", id).Count(&usage.ProxyInbounds).Error; err != nil {
+		return usage, err
+	}
+	if err := s.db.Model(&models.WireGuardServer{}).Where("domain_id=?", id).Count(&usage.WireGuardEndpoint).Error; err != nil {
 		return usage, err
 	}
 	return usage, nil

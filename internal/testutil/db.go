@@ -32,14 +32,15 @@ func NewConfig(t *testing.T) *config.Config {
 			CookieSecure:     false,
 		},
 		Paths: config.PathsConfig{
-			DataDir:        dir,
-			LogDir:         dir,
-			DBFile:         dir + "/proxy-go-test.db",
-			CertDir:        dir + "/certs",
-			BinDir:         dir + "/bin",
-			NginxConfDir:   dir + "/nginx",
-			SingBoxConfDir: dir + "/sing-box",
-			WebRoot:        dir + "/web",
+			DataDir:          dir,
+			LogDir:           dir,
+			DBFile:           dir + "/proxy-go-test.db",
+			CertDir:          dir + "/certs",
+			BinDir:           dir + "/bin",
+			NginxConfDir:     dir + "/nginx",
+			SingBoxConfDir:   dir + "/sing-box",
+			WireGuardConfDir: dir + "/wireguard",
+			WebRoot:          dir + "/web",
 		},
 		Security: config.SecurityConfig{
 			InitialPassword: "test-password",
@@ -55,6 +56,8 @@ func NewConfig(t *testing.T) *config.Config {
 			StartChildren: false,
 			NginxBinary:   config.DockerNginxBinary,
 			SingBoxBinary: config.DockerSingBoxBinary,
+			WGQuickBinary: config.DockerWGQuickBinary,
+			WGBinary:      config.DockerWGBinary,
 		},
 	}
 }

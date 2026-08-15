@@ -86,6 +86,18 @@ func TestUsageCountsReverseProxyAndInboundReferences(t *testing.T) {
 	}
 }
 
+func TestDeleteRejectsWireGuardEndpointDomain(t *testing.T) {
+	db := testutil.NewDB(t)
+	svc := New(db)
+	domain := models.Domain{Domain: "vpn.example.com", Status: "enabled"}
+	db.Create(&domain)
+	db.Create(&models.WireGuardServer{ID: 1, DomainID: &domain.ID, InterfaceName: "wg0", Address: "10.8.0.1/24", ListenPort: 51820, EgressInterface: "eth0", PrivateKey: "private", PublicKey: "public"})
+
+	if err := svc.Delete(domain.ID); err == nil || err.Error() != "domain is in use" {
+		t.Fatalf("expected wireguard domain in-use error, got %v", err)
+	}
+}
+
 func TestIssueCertificateAttachesCertificateToDomain(t *testing.T) {
 	db := testutil.NewDB(t)
 	cfg := testutil.NewConfig(t)

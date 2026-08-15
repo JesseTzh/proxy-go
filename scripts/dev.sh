@@ -65,7 +65,8 @@ mkdir -p \
   "${DEV_DIR}/bin" \
   "${DEV_DIR}/certs" \
   "${DEV_DIR}/nginx" \
-  "${DEV_DIR}/xray"
+  "${DEV_DIR}/sing-box" \
+  "${DEV_DIR}/wireguard"
 
 cat >"${CONFIG_FILE}" <<EOF
 server:
@@ -83,7 +84,8 @@ paths:
   cert_dir: "${DEV_DIR}/certs"
   bin_dir: "${DEV_DIR}/bin"
   nginx_conf_dir: "${DEV_DIR}/nginx"
-  xray_conf_dir: "${DEV_DIR}/xray"
+  sing_box_conf_dir: "${DEV_DIR}/sing-box"
+  wireguard_conf_dir: "${DEV_DIR}/wireguard"
   web_root: "${ROOT_DIR}/web/dist"
 security:
   initial_password: "${INITIAL_PASSWORD}"

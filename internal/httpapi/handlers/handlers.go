@@ -11,6 +11,7 @@ import (
 	"github.com/proxy-go/proxy-go/internal/nginx"
 	"github.com/proxy-go/proxy-go/internal/security"
 	"github.com/proxy-go/proxy-go/internal/singbox"
+	"github.com/proxy-go/proxy-go/internal/wireguard"
 	"gorm.io/gorm"
 )
 
@@ -21,6 +22,7 @@ type Deps struct {
 	ACME      *acme.Service
 	Nginx     *nginx.Service
 	SingBox   *singbox.Service
+	WireGuard *wireguard.Service
 	Limiter   *security.LoginLimiter
 	Validator *validator.Validate
 }
