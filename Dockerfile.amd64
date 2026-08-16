@@ -32,16 +32,15 @@ FROM --platform=linux/amd64 node:24-bookworm AS web-builder
 
 WORKDIR /src/web
 
-# shadcn / Tailwind / Vite 项目使用 pnpm。没有 lockfile 时允许生成 lockfile。
-RUN corepack enable && corepack prepare pnpm@11 --activate
+# 与 web/package.json 的 packageManager 保持一致，确保本地、CI 和镜像构建使用同一版本。
+RUN corepack enable && corepack prepare pnpm@11.21.0 --activate
 
-COPY web ./
-RUN if [ -f pnpm-lock.yaml ]; then \
-      pnpm install --frozen-lockfile; \
-    else \
-      pnpm install; \
-    fi \
-    && pnpm build
+# 先复制依赖清单，使源码变化不会使依赖安装层失效。
+COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY web/ ./
+RUN pnpm build
 
 ############################
 # 2. Nginx 构建
