@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { BadgeCheck, FileKey2, RefreshCw, Search, Shield, ShieldCheck, Trash2 } from 'lucide-react'
+import { BadgeCheck, FileKey2, RefreshCw, Search, ShieldCheck, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataTable } from '../components/DataTable'
 import { FormField } from '../components/FormField'
@@ -13,12 +13,11 @@ import { Input } from '@/components/ui/input'
 import { TableCell, TableRow } from '@/components/ui/table'
 import { delJson, getJson, postJson } from '../lib/api'
 import { domainSchema, type DomainFormValues } from '../schemas/domain'
-import type { Domain, SystemSettings, WireGuardState } from '../types'
+import type { Domain, SystemSettings } from '../types'
 
 export function DomainsPage() {
   const [items, setItems] = useState<Domain[]>([])
   const [managementDomain, setManagementDomain] = useState('')
-  const [wireGuardDomain, setWireGuardDomain] = useState('')
   const [busy, setBusy] = useState<string>()
   const { register, handleSubmit, reset, formState: { errors } } = useForm<DomainFormValues>({
     resolver: zodResolver(domainSchema),
@@ -26,14 +25,12 @@ export function DomainsPage() {
   })
 
   const load = async () => {
-    const [domains, settings, wireguard] = await Promise.all([
+    const [domains, settings] = await Promise.all([
       getJson<Domain[]>('domains'),
       getJson<{ settings?: SystemSettings }>('settings'),
-      getJson<WireGuardState>('wireguard'),
     ])
     setItems(domains)
     setManagementDomain(settings.settings?.managementDomain ?? '')
-    setWireGuardDomain(wireguard.server.domain?.domain ?? '')
   }
 
   useEffect(() => {
@@ -47,7 +44,7 @@ export function DomainsPage() {
     void load()
   }
 
-  async function domainAction(domain: Domain, action: 'dns' | 'issue' | 'renew' | 'delete-cert' | 'delete-domain' | 'management' | 'wireguard') {
+  async function domainAction(domain: Domain, action: 'dns' | 'issue' | 'renew' | 'delete-cert' | 'delete-domain' | 'management') {
     const key = `${domain.id}-${action}`
     setBusy(key)
     try {
@@ -75,11 +72,6 @@ export function DomainsPage() {
         await postJson(`domains/${domain.id}/management`)
         setManagementDomain(domain.domain)
         toast.success('已设为管理面板域名')
-      }
-      if (action === 'wireguard') {
-        await postJson(`domains/${domain.id}/wireguard`)
-        setWireGuardDomain(domain.domain)
-        toast.success('已设为 WireGuard 出口域名')
       }
       void load()
     } catch {
@@ -111,7 +103,6 @@ export function DomainsPage() {
                 <div className="font-medium flex items-center gap-2">
                   {item.domain}
                   {item.domain === managementDomain ? <span className="inline-flex items-center gap-1 text-xs text-emerald-700" data-testid={`domain-management-badge-${item.id}`}><ShieldCheck size={14} />管理面板</span> : null}
-                  {item.domain === wireGuardDomain ? <span className="inline-flex items-center gap-1 text-xs text-blue-700" data-testid={`domain-wireguard-badge-${item.id}`}><Shield size={14} />WireGuard</span> : null}
                 </div>
                 {item.remark ? <div className="text-xs text-slate-500 mt-1">{item.remark}</div> : null}
               </TableCell>
@@ -154,12 +145,6 @@ export function DomainsPage() {
                     <Button variant="outline" size="sm" disabled={busy === `${item.id}-management`} onClick={() => domainAction(item, 'management')} data-testid={`domain-set-management-${item.id}`}>
                       <ShieldCheck size={15} aria-hidden="true" />
                       设为面板域名
-                    </Button>
-                  ) : null}
-                  {item.domain !== wireGuardDomain ? (
-                    <Button variant="outline" size="sm" disabled={busy === `${item.id}-wireguard`} onClick={() => domainAction(item, 'wireguard')} data-testid={`domain-set-wireguard-${item.id}`}>
-                      <Shield size={15} aria-hidden="true" />
-                      设为 WG 出口域名
                     </Button>
                   ) : null}
                   <Button variant="outline" size="sm" disabled={busy === `${item.id}-delete-domain`} onClick={() => domainAction(item, 'delete-domain')} data-testid={`domain-delete-${item.id}`}>

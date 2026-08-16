@@ -32,7 +32,6 @@ func Router(d Deps) *gin.Engine {
 	protected.PUT("/domains/:id", handlers.UpdateDomain(d))
 	protected.DELETE("/domains/:id", handlers.DeleteDomain(d))
 	protected.POST("/domains/:id/management", handlers.SetDomainAsManagement(d))
-	protected.POST("/domains/:id/wireguard", handlers.SetDomainAsWireGuardEndpoint(d))
 	protected.POST("/domains/:id/dns-check", handlers.DNSCheck(d))
 	protected.GET("/domains/:id/usage", handlers.DomainUsage(d))
 	protected.POST("/domains/:id/certificate/issue", handlers.IssueDomainCertificate(d))
@@ -71,12 +70,5 @@ func Router(d Deps) *gin.Engine {
 	protected.GET("/audit-logs", handlers.AuditLogs(d))
 	protected.GET("/settings", handlers.Settings(d))
 	protected.PUT("/settings", handlers.UpdateSettings(d))
-	protected.GET("/wireguard", handlers.WireGuardState(d))
-	protected.PUT("/wireguard", handlers.UpdateWireGuard(d))
-	protected.POST("/wireguard/clients", handlers.CreateWireGuardClient(d))
-	protected.POST("/wireguard/clients/:id/enable", handlers.SetWireGuardClientEnabled(d, true))
-	protected.POST("/wireguard/clients/:id/disable", handlers.SetWireGuardClientEnabled(d, false))
-	protected.DELETE("/wireguard/clients/:id", handlers.DeleteWireGuardClient(d))
-	protected.GET("/wireguard/clients/:id/config", handlers.WireGuardClientConfig(d))
 	return r
 }

@@ -9,6 +9,3 @@ export type RuntimeStatus = { proxyGo: {running:boolean}; nginx: ProcessStatus; 
 export type RuntimeLogSummary = { logs: string[] }
 export type RuntimeConfigSnapshot = { path: string; content: string }
 export type AuditLog = { id: number; action: string; resourceType: string; resourceId: string; detail: string; ip: string; userAgent: string; createdAt: string }
-export type WireGuardServer = { id: number; domainId?: number; domain?: Domain; enabled: boolean; interfaceName: string; address: string; listenPort: number; dns: string; mtu: number; egressInterface: string; publicKey: string }
-export type WireGuardClient = { id: number; serverId: number; name: string; address: string; publicKey: string; enabled: boolean; online: boolean; lastHandshakeAt?: string; uploadBytes: number; downloadBytes: number; endpoint?: string; createdAt: string }
-export type WireGuardState = { server: WireGuardServer; clients: WireGuardClient[]; runtime: { running: boolean; interface?: string; configPath?: string; error?: string } }

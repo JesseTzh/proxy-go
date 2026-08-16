@@ -15,7 +15,6 @@ paths:
   bin_dir: "/var/lib/proxy-go/bin"
   nginx_conf_dir: "/var/lib/proxy-go/nginx"
   sing_box_conf_dir: "/var/lib/proxy-go/sing-box"
-  wireguard_conf_dir: "/var/lib/proxy-go/wireguard"
   web_root: "/usr/share/proxy-go/web"
 
 security:
@@ -31,8 +30,6 @@ runtime:
   start_children: true
   nginx_binary: "/usr/local/bin/nginx"
   sing_box_binary: "/usr/local/bin/sing-box"
-  wg_quick_binary: "/usr/bin/wg-quick"
-  wg_binary: "/usr/bin/wg"
 
 nginx:
   client_max_body_size: "0"

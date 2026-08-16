@@ -13,7 +13,6 @@ if [ "${1:-}" != "--inside-container" ]; then
 
   exec docker run --rm \
     --platform linux/amd64 \
-    --cap-add NET_ADMIN \
     --entrypoint /bin/sh \
     --volume "${script_path}:/tmp/proxy-go-ci-smoke.sh:ro" \
     "${image}" \
@@ -23,16 +22,11 @@ fi
 work_dir="$(mktemp -d)"
 nginx_pid=""
 sing_box_pid=""
-wg_interface="wgci0"
-wg_config="${work_dir}/${wg_interface}.conf"
 
 cleanup() {
   status=$?
   set +e
 
-  if /usr/bin/wg show "${wg_interface}" >/dev/null 2>&1; then
-    /usr/bin/wg-quick down "${wg_config}" >/dev/null 2>&1
-  fi
   if [ -n "${sing_box_pid}" ]; then
     kill "${sing_box_pid}" >/dev/null 2>&1
     wait "${sing_box_pid}" >/dev/null 2>&1
@@ -86,10 +80,6 @@ wait_for_http() {
 
 require_executable /usr/local/bin/nginx
 require_executable /usr/local/bin/sing-box
-require_executable /usr/bin/wg
-require_executable /usr/bin/wg-quick
-require_executable /usr/sbin/ip
-require_executable /usr/sbin/iptables
 
 echo "Testing Nginx startup"
 mkdir -p "${work_dir}/nginx"
@@ -161,20 +151,5 @@ if [ "${attempts}" -eq 20 ]; then
   echo "timed out waiting for the sing-box proxy" >&2
   exit 1
 fi
-
-echo "Testing WireGuard startup"
-private_key="$(/usr/bin/wg genkey)"
-cat >"${wg_config}" <<EOF
-[Interface]
-Address = 10.254.254.1/32
-ListenPort = 51888
-PrivateKey = ${private_key}
-PostUp = iptables -I FORWARD -i %i -j ACCEPT
-PostDown = iptables -D FORWARD -i %i -j ACCEPT
-EOF
-chmod 0600 "${wg_config}"
-/usr/bin/wg-quick up "${wg_config}"
-/usr/bin/wg show "${wg_interface}" >/dev/null
-/usr/sbin/ip link show "${wg_interface}" >/dev/null
 
 echo "All bundled service smoke tests passed"

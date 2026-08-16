@@ -30,8 +30,6 @@ func Open(cfg *config.Config) (*gorm.DB, error) {
 		&models.ProxyInbound{},
 		&models.AuditLog{},
 		&models.ProtocolCapability{},
-		&models.WireGuardServer{},
-		&models.WireGuardClient{},
 	); err != nil {
 		return nil, err
 	}

@@ -32,37 +32,6 @@ type SystemSetting struct {
 	UpdatedAt                time.Time  `json:"updatedAt"`
 }
 
-type WireGuardServer struct {
-	ID              uint      `gorm:"primaryKey" json:"id"`
-	DomainID        *uint     `gorm:"index" json:"domainId"`
-	Domain          *Domain   `json:"domain,omitempty"`
-	Enabled         bool      `json:"enabled"`
-	InterfaceName   string    `gorm:"not null" json:"interfaceName"`
-	Address         string    `gorm:"not null" json:"address"`
-	ListenPort      int       `gorm:"not null" json:"listenPort"`
-	DNS             string    `json:"dns"`
-	MTU             int       `json:"mtu"`
-	EgressInterface string    `gorm:"not null" json:"egressInterface"`
-	PrivateKey      string    `gorm:"not null" json:"-"`
-	PublicKey       string    `gorm:"not null" json:"publicKey"`
-	CreatedAt       time.Time `json:"createdAt"`
-	UpdatedAt       time.Time `json:"updatedAt"`
-}
-
-type WireGuardClient struct {
-	ID           uint            `gorm:"primaryKey" json:"id"`
-	ServerID     uint            `gorm:"index;not null" json:"serverId"`
-	Server       WireGuardServer `json:"-"`
-	Name         string          `gorm:"not null" json:"name"`
-	Address      string          `gorm:"uniqueIndex;not null" json:"address"`
-	PrivateKey   string          `gorm:"not null" json:"-"`
-	PublicKey    string          `gorm:"not null" json:"publicKey"`
-	PresharedKey string          `gorm:"not null" json:"-"`
-	Enabled      bool            `json:"enabled"`
-	CreatedAt    time.Time       `json:"createdAt"`
-	UpdatedAt    time.Time       `json:"updatedAt"`
-}
-
 type ACMEChallenge struct {
 	ID               uint      `gorm:"primaryKey" json:"id"`
 	Domain           string    `gorm:"index;not null" json:"domain"`

@@ -7,7 +7,6 @@ proxy-go 是一个面向单机部署的代理网关管理程序，提供 Web 管
 1. 自动申请 SSL 证书：基于域名配置发起 ACME HTTP-01 验证，完成证书签发、落盘和续期管理，供后续 HTTPS 入口和反向代理配置使用。
 2. 端口反向代理：通过内置 Nginx 生成和加载反向代理配置，将普通 HTTPS 流量按域名转发到指定后端服务。
 3. 使用 sing-box 创建指定协议代理：通过 sing-box 生成 Reality Vision 与 AnyTLS 入站配置，公网 HTTPS 由 Nginx stream 按 SNI 分流到 sing-box 或内部 HTTPS，并由程序统一管理配置生成、校验和运行状态。
-4. WireGuard VPN：管理 WireGuard 服务端和客户端，自动分配客户端地址并生成标准 `.conf` 配置；已有域名可一键设为 WireGuard 客户端 Endpoint 域名。
 
 ## 网络流量架构
 
@@ -37,18 +36,6 @@ Nginx stream ssl_preread
         `-> 127.0.0.1:30443 Nginx internal HTTPS
               |-- management domain -> proxy-go Web/API
               `-- reverse proxy     -> configured upstream service
-```
-
-WireGuard 使用独立 UDP 入口，默认监听 `51820/udp`。客户端全局流量经 `wg0` 进入服务器，再通过 Docker 容器的 `eth0` 做 NAT 出口；它不经过 Nginx 的 TCP/TLS 分流。
-
-```text
-WireGuard client
-  | UDP endpoint: vpn.example.com:51820
-  v
-proxy-go container wg0
-  | iptables MASQUERADE
-  v
-eth0 -> Internet
 ```
 
 ## 项目结构
@@ -90,8 +77,6 @@ docker compose up -d
 ```text
 http://127.0.0.1:30080
 ```
-
-Compose 已包含 `51820/udp`、`NET_ADMIN` 和 IPv4 转发配置。先在“域名管理”中新增域名并设为 WireGuard 出口域名，再到 WireGuard 页面启用服务、创建客户端并下载配置文件。若修改 WireGuard UDP 端口，需要同步修改 `docker-compose.yml` 的 UDP 端口映射。
 
 ### 本地开发
 

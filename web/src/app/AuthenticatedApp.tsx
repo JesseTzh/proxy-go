@@ -6,7 +6,6 @@ import { DashboardPage } from '../pages/DashboardPage'
 const DomainsPage = lazy(() => import('../pages/DomainsPage').then(module => ({ default: module.DomainsPage })))
 const ReverseProxiesPage = lazy(() => import('../pages/ReverseProxiesPage').then(module => ({ default: module.ReverseProxiesPage })))
 const VlessPage = lazy(() => import('../pages/VlessPage').then(module => ({ default: module.VlessPage })))
-const WireGuardPage = lazy(() => import('../pages/WireGuardPage').then(module => ({ default: module.WireGuardPage })))
 const SettingsPage = lazy(() => import('../pages/SettingsPage').then(module => ({ default: module.SettingsPage })))
 const AuditPage = lazy(() => import('../pages/AuditPage').then(module => ({ default: module.AuditPage })))
 
@@ -28,7 +27,6 @@ function PageContent({ page, onLogout }: { page: Page; onLogout: () => Promise<v
     case 'domains': return <DomainsPage />
     case 'reverse': return <ReverseProxiesPage />
     case 'vless': return <VlessPage />
-    case 'wireguard': return <WireGuardPage />
     case 'settings': return <SettingsPage />
     case 'audit': return <AuditPage />
   }
