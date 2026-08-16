@@ -5,21 +5,28 @@ import tailwindcss from '@tailwindcss/vite'
 
 function createVersion() {
   const now = new Date()
-  const date = [
-    String(now.getFullYear()).slice(-2),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0'),
-    String(now.getHours()).padStart(2, '0'),
-    String(now.getMinutes()).padStart(2, '0'),
-  ].join('-')
+  const dateParts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Shanghai',
+    year: '2-digit',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now)
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    dateParts.find((item) => item.type === type)?.value ?? '00'
+  const date = [part('year'), part('month'), part('day'), part('hour'), part('minute')].join('-')
 
-  let gitSha = 'unknown'
-  try {
-    gitSha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
-      encoding: 'utf8',
-    }).trim()
-  } catch {
-    // Keep builds working when the source is provided without Git metadata.
+  let gitSha = process.env.PROXY_GO_GIT_SHA?.trim().slice(0, 7)
+  if (!gitSha) {
+    try {
+      gitSha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], {
+        encoding: 'utf8',
+      }).trim()
+    } catch {
+      gitSha = 'unknown'
+    }
   }
 
   return `ver:${date}-${gitSha}`

@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const source = readFileSync(resolve(__dirname, '../src/pages/LoginPage.tsx'), 'utf8')
+const viteConfig = readFileSync(resolve(__dirname, '../vite.config.ts'), 'utf8')
 
 const expectations = [
   ['Proxy-Go', 'centered product name'],
@@ -40,6 +41,20 @@ if (remaining.length > 0) {
   console.error('Login assertions failed: removed login content is still present:')
   for (const needle of remaining) {
     console.error(`- ${needle}`)
+  }
+  process.exit(1)
+}
+
+const versionExpectations = [
+  ['Asia/Shanghai', 'Shanghai build timezone'],
+  ['PROXY_GO_GIT_SHA', 'injected Git SHA'],
+  ["['rev-parse', '--short', 'HEAD']", 'local Git SHA fallback'],
+]
+const missingVersionConfig = versionExpectations.filter(([needle]) => !viteConfig.includes(needle))
+if (missingVersionConfig.length > 0) {
+  console.error('Login version assertions failed:')
+  for (const [, label] of missingVersionConfig) {
+    console.error(`- Missing ${label}`)
   }
   process.exit(1)
 }

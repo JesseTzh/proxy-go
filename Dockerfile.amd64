@@ -30,6 +30,9 @@ ARG TARGETARCH=amd64
 ############################
 FROM --platform=linux/amd64 node:24-bookworm AS web-builder
 
+ARG PROXY_GO_GIT_SHA
+ENV PROXY_GO_GIT_SHA=${PROXY_GO_GIT_SHA}
+
 WORKDIR /src/web
 
 # 与 web/package.json 的 packageManager 保持一致，确保本地、CI 和镜像构建使用同一版本。
