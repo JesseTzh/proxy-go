@@ -53,9 +53,6 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
       curl \
-      iproute2 \
-      iptables \
-      wireguard-tools \
       build-essential \
       libpcre2-dev \
       zlib1g-dev \
@@ -153,14 +150,20 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PROXY_GO_CONFIG=/etc/proxy-go/config.yml
 
 # Nginx 为自编译二进制，但仍依赖系统运行库。
+# WireGuard 工具必须安装在最终镜像中，wg-quick 还依赖 iproute2 和 iptables。
 # curl 仅用于 HEALTHCHECK，可按需删除。
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
       tzdata \
       curl \
+      iproute2 \
+      iptables \
+      wireguard-tools \
       libpcre2-8-0 \
       zlib1g \
       libssl3 \
+    && test -x /usr/bin/wg-quick \
+    && test -x /usr/bin/wg \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p \

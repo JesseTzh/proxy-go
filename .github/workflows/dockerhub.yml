@@ -83,76 +83,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Smoke test bundled services
+        shell: bash
+        env:
+          TEST_IMAGE: proxy-go:ci-${{ github.sha }}
+        run: ./scripts/ci-smoke-services.sh "${TEST_IMAGE}"
+
       - name: Validate fresh and existing database startup
         shell: bash
         env:
           TEST_IMAGE: proxy-go:ci-${{ github.sha }}
-          TEST_CONTAINER: proxy-go-ci-${{ github.run_id }}-${{ github.run_attempt }}
-          TEST_VOLUME: proxy-go-ci-data-${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          set -euo pipefail
-
-          cleanup() {
-            status=$?
-            if [ "${status}" -ne 0 ]; then
-              echo "::group::Container logs"
-              docker logs "${TEST_CONTAINER}" 2>&1 || true
-              echo "::endgroup::"
-              docker inspect "${TEST_CONTAINER}" 2>/dev/null || true
-            fi
-            docker rm -fv "${TEST_CONTAINER}" >/dev/null 2>&1 || true
-            docker volume rm "${TEST_VOLUME}" >/dev/null 2>&1 || true
-            exit "${status}"
-          }
-          trap cleanup EXIT
-
-          wait_for_healthy() {
-            for attempt in $(seq 1 60); do
-              status="$(docker inspect --format '{{.State.Health.Status}}' "${TEST_CONTAINER}" 2>/dev/null || true)"
-              if [ "${status}" = "healthy" ]; then
-                return 0
-              fi
-
-              running="$(docker inspect --format '{{.State.Running}}' "${TEST_CONTAINER}" 2>/dev/null || true)"
-              if [ "${running}" != "true" ]; then
-                echo "Container stopped before becoming healthy" >&2
-                return 1
-              fi
-
-              echo "Waiting for container health check (${attempt}/60): ${status:-unknown}"
-              sleep 5
-            done
-
-            echo "Timed out waiting for a healthy container" >&2
-            return 1
-          }
-
-          start_container() {
-            initial_password="${1:-}"
-            password_args=()
-            if [ -n "${initial_password}" ]; then
-              password_args+=(--env "PROXY_GO_INITIAL_PASSWORD=${initial_password}")
-            fi
-
-            docker run --detach \
-              --name "${TEST_CONTAINER}" \
-              "${password_args[@]}" \
-              --volume "${TEST_VOLUME}:/var/lib/proxy-go" \
-              "${TEST_IMAGE}" >/dev/null
-            wait_for_healthy
-            docker exec "${TEST_CONTAINER}" curl -fsS \
-              http://127.0.0.1:30080/api/init/status >/dev/null
-          }
-
-          docker volume create "${TEST_VOLUME}" >/dev/null
-
-          echo "Validating startup with a fresh database"
-          start_container ci-startup-password
-          docker exec "${TEST_CONTAINER}" test -s /var/lib/proxy-go/proxy-go.db
-
-          echo "Validating restart with the existing database"
-          docker rm -fv "${TEST_CONTAINER}" >/dev/null
-          start_container
+        run: ./scripts/ci-smoke-startup.sh "${TEST_IMAGE}"
 
   publish:
     name: Build and publish image
