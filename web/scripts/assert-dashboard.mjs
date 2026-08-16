@@ -6,7 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const source = readFileSync(resolve(__dirname, '../src/pages/DashboardPage.tsx'), 'utf8')
 
 const expectations = [
-  ['dashboard-last-updated', 'top status capsule with last updated time'],
+  ['dashboard-logout-button', 'dashboard logout button'],
   ['dashboard-service-section', 'service section'],
   ['dashboard-metric-domains', 'domain metric card'],
   ['dashboard-metric-certificates', 'certificate metric card'],
@@ -43,6 +43,21 @@ if (oldAttributeCount > 0) {
 
 if (source.includes(removedDescription)) {
   console.error('Dashboard redesign assertions failed: removed dashboard description is still present')
+  process.exit(1)
+}
+
+const removedDashboardActions = [
+  'data-testid="dashboard-actions"',
+  'data-testid="dashboard-refresh-button"',
+  'data-testid="dashboard-last-updated"',
+]
+
+const remainingDashboardActions = removedDashboardActions.filter((needle) => source.includes(needle))
+if (remainingDashboardActions.length > 0) {
+  console.error('Dashboard redesign assertions failed: removed dashboard actions remain:')
+  for (const needle of remainingDashboardActions) {
+    console.error(`- ${needle}`)
+  }
   process.exit(1)
 }
 

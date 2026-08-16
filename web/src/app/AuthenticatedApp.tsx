@@ -10,21 +10,21 @@ const WireGuardPage = lazy(() => import('../pages/WireGuardPage').then(module =>
 const SettingsPage = lazy(() => import('../pages/SettingsPage').then(module => ({ default: module.SettingsPage })))
 const AuditPage = lazy(() => import('../pages/AuditPage').then(module => ({ default: module.AuditPage })))
 
-export function AuthenticatedApp() {
+export function AuthenticatedApp({ onLogout }: { onLogout: () => Promise<void> }) {
   const [page, setPage] = useState<Page>('dashboard')
 
   return (
     <Shell page={page} setPage={setPage}>
       <Suspense fallback={<PageLoading />}>
-        <PageContent page={page} />
+        <PageContent page={page} onLogout={onLogout} />
       </Suspense>
     </Shell>
   )
 }
 
-function PageContent({ page }: { page: Page }) {
+function PageContent({ page, onLogout }: { page: Page; onLogout: () => Promise<void> }) {
   switch (page) {
-    case 'dashboard': return <DashboardPage />
+    case 'dashboard': return <DashboardPage onLogout={onLogout} />
     case 'domains': return <DomainsPage />
     case 'reverse': return <ReverseProxiesPage />
     case 'vless': return <VlessPage />

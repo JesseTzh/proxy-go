@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Boxes, Bug, FileText, Globe, Network, Play, Power, RefreshCw, RotateCw, ScrollText, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { Boxes, Bug, FileText, Globe, LogOut, Network, Play, Power, RefreshCw, RotateCw, ScrollText, ShieldCheck, type LucideIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -18,10 +18,10 @@ const actionLabels: Record<ProcessAction, string> = {
   restart: '重启',
 }
 
-export function DashboardPage() {
+export function DashboardPage({ onLogout }: { onLogout: () => Promise<void> }) {
   const [status, setStatus] = useState<RuntimeStatus>()
   const [busy, setBusy] = useState<string>()
-  const [lastUpdated, setLastUpdated] = useState<Date>()
+  const [logoutLoading, setLogoutLoading] = useState(false)
   const [singBoxLogs, setSingBoxLogs] = useState<string[]>([])
   const [logsOpen, setLogsOpen] = useState(false)
   const [logsLoading, setLogsLoading] = useState(false)
@@ -32,12 +32,21 @@ export function DashboardPage() {
   const load = () =>
     getJson<RuntimeStatus>('runtime/status').then((nextStatus) => {
       setStatus(nextStatus)
-      setLastUpdated(new Date())
     })
 
   useEffect(() => {
     void load()
   }, [])
+
+  async function logout() {
+    setLogoutLoading(true)
+    try {
+      await onLogout()
+    } catch {
+      // global error dialog handles API failures
+      setLogoutLoading(false)
+    }
+  }
 
   async function control(process: ProcessName, action: ProcessAction) {
     const key = `${process}-${action}`
@@ -102,19 +111,15 @@ export function DashboardPage() {
           </h1>
         </div>
 
-        <div
-          className="flex min-h-12 flex-wrap items-center gap-3 rounded-xl bg-white px-2 py-2 shadow-[var(--shadow-border)]"
-          data-testid="dashboard-actions"
+        <Button
+          variant="outline"
+          onClick={() => void logout()}
+          disabled={logoutLoading}
+          data-testid="dashboard-logout-button"
         >
-          <Button variant="outline" onClick={() => void load()} data-testid="dashboard-refresh-button">
-            <RotateCw size={16} aria-hidden="true" />
-            刷新状态
-          </Button>
-          <div className="h-6 w-px bg-neutral-200" aria-hidden="true" data-testid="dashboard-action-divider" />
-          <div className="px-2 text-sm tabular-nums text-neutral-500" data-testid="dashboard-last-updated">
-            最后更新：{lastUpdated ? formatDateTime(lastUpdated) : '-'}
-          </div>
-        </div>
+          <LogOut size={16} aria-hidden="true" />
+          {logoutLoading ? '正在登出…' : '登出'}
+        </Button>
       </header>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" data-testid="dashboard-metrics">
@@ -379,18 +384,6 @@ function formatNginxListen(status?: RuntimeStatus) {
 
 function formatSingBoxListen(status?: RuntimeStatus) {
   return status?.singBoxInboundListen || '-'
-}
-
-function formatDateTime(date: Date) {
-  return new Intl.DateTimeFormat('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  }).format(date)
 }
 
 function ProcessLogo({ process, 'data-testid': dataTestId }: { process: ProcessName; 'data-testid'?: string }) {
