@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Download, Power, PowerOff, Save, Trash2, UserPlus } from 'lucide-react'
+import QRCode from 'qrcode'
+import { Download, Power, PowerOff, QrCode, Save, Trash2, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataTable } from '../components/DataTable'
 import { FormField } from '../components/FormField'
@@ -8,9 +9,10 @@ import { StatusBadge } from '../components/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { TableCell, TableRow } from '@/components/ui/table'
-import { delJson, getJson, postJson, putJson } from '../lib/api'
+import { api, delJson, getJson, postJson, putJson } from '../lib/api'
 import type { WireGuardClient, WireGuardServer, WireGuardState } from '../types'
 
 const defaultServer: WireGuardServer = {
@@ -25,11 +27,25 @@ const defaultServer: WireGuardServer = {
   publicKey: '',
 }
 
+function formatBytes(value: number) {
+  if (!value) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  const unit = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1)
+  return `${(value / 1024 ** unit).toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`
+}
+
+function formatLastHandshake(value?: string) {
+  return value ? new Date(value).toLocaleString() : '从未连接'
+}
+
 export function WireGuardPage() {
   const [state, setState] = useState<WireGuardState>()
   const [server, setServer] = useState<WireGuardServer>(defaultServer)
   const [clientName, setClientName] = useState('')
   const [busy, setBusy] = useState<string>()
+  const [shareClient, setShareClient] = useState<WireGuardClient>()
+  const [qrCodeUrl, setQrCodeUrl] = useState('')
+  const [shareLoading, setShareLoading] = useState(false)
 
   async function load() {
     const next = await getJson<WireGuardState>('wireguard')
@@ -37,7 +53,28 @@ export function WireGuardPage() {
     setServer(next.server)
   }
 
-  useEffect(() => { void load() }, [])
+  useEffect(() => {
+    void load()
+    const timer = window.setInterval(() => {
+      void getJson<WireGuardState>('wireguard', { silentError: true }).then(setState).catch(() => undefined)
+    }, 15_000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  async function openShare(client: WireGuardClient) {
+    setShareClient(client)
+    setQrCodeUrl('')
+    setShareLoading(true)
+    try {
+      const config = await api.get(`wireguard/clients/${client.id}/config`).text()
+      setQrCodeUrl(await QRCode.toDataURL(config, { width: 320, margin: 2, errorCorrectionLevel: 'M' }))
+    } catch {
+      toast.error('无法生成二维码，请先配置 WireGuard Endpoint 域名')
+      setShareClient(undefined)
+    } finally {
+      setShareLoading(false)
+    }
+  }
 
   async function saveServer() {
     setBusy('save')
@@ -164,18 +201,29 @@ export function WireGuardPage() {
         </form>
       </Card>
 
-      <DataTable headers={['客户端', 'VPN 地址', '状态', '创建时间', '操作']} data-testid="wireguard-clients-table">
+      <DataTable headers={['客户端', 'VPN 地址', '启用状态', '连接状态', '上次在线', '流量统计', '操作']} data-testid="wireguard-clients-table">
         {(state?.clients ?? []).map(client => (
           <TableRow key={client.id} data-testid={`wireguard-client-row-${client.id}`}>
             <TableCell data-testid={`wireguard-client-name-${client.id}`}>{client.name}</TableCell>
             <TableCell className="font-mono text-xs" data-testid={`wireguard-client-address-${client.id}`}>{client.address}</TableCell>
             <TableCell data-testid={`wireguard-client-status-${client.id}`}><StatusBadge tone={client.enabled ? 'success' : 'neutral'}>{client.enabled ? '启用' : '停用'}</StatusBadge></TableCell>
-            <TableCell data-testid={`wireguard-client-created-${client.id}`}>{new Date(client.createdAt).toLocaleString()}</TableCell>
+            <TableCell data-testid={`wireguard-client-online-${client.id}`}>
+              <StatusBadge tone={client.online ? 'success' : 'neutral'}>{client.online ? '在线' : '离线'}</StatusBadge>
+            </TableCell>
+            <TableCell className="whitespace-nowrap text-sm" title={client.endpoint} data-testid={`wireguard-client-last-online-${client.id}`}>{formatLastHandshake(client.lastHandshakeAt)}</TableCell>
+            <TableCell className="whitespace-nowrap text-xs" data-testid={`wireguard-client-traffic-${client.id}`}>
+              <div data-testid={`wireguard-client-upload-${client.id}`}>上传 {formatBytes(client.uploadBytes)}</div>
+              <div className="text-muted-foreground" data-testid={`wireguard-client-download-traffic-${client.id}`}>下载 {formatBytes(client.downloadBytes)}</div>
+            </TableCell>
             <TableCell data-testid={`wireguard-client-actions-${client.id}`}>
               <div className="flex flex-wrap gap-2" data-testid={`wireguard-client-actions-wrap-${client.id}`}>
                 <Button variant="outline" size="sm" onClick={() => { window.location.href = `/api/wireguard/clients/${client.id}/config` }} data-testid={`wireguard-client-download-${client.id}`}>
                   <Download aria-hidden="true" />
                   下载配置
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => void openShare(client)} data-testid={`wireguard-client-share-${client.id}`}>
+                  <QrCode aria-hidden="true" />
+                  二维码
                 </Button>
                 <Button variant="outline" size="sm" disabled={busy === `${client.id}-${client.enabled ? 'disable' : 'enable'}`} onClick={() => clientAction(client, client.enabled ? 'disable' : 'enable')} data-testid={`wireguard-client-toggle-${client.id}`}>
                   {client.enabled ? <PowerOff aria-hidden="true" /> : <Power aria-hidden="true" />}
@@ -190,6 +238,19 @@ export function WireGuardPage() {
           </TableRow>
         ))}
       </DataTable>
+
+      <Dialog open={Boolean(shareClient)} onOpenChange={open => { if (!open) setShareClient(undefined) }} data-testid="wireguard-share-dialog">
+        <DialogContent className="sm:max-w-md" data-testid="wireguard-share-dialog-content">
+          <DialogHeader data-testid="wireguard-share-dialog-header">
+            <DialogTitle data-testid="wireguard-share-dialog-title">扫描导入 {shareClient?.name}</DialogTitle>
+            <DialogDescription data-testid="wireguard-share-dialog-description">使用 WireGuard 手机客户端扫描二维码即可导入完整配置。</DialogDescription>
+          </DialogHeader>
+          <div className="grid min-h-80 place-items-center" data-testid="wireguard-share-qr-wrap">
+            {shareLoading && <span className="text-muted-foreground" data-testid="wireguard-share-loading">正在生成二维码…</span>}
+            {qrCodeUrl && <img className="aspect-square w-full max-w-80" src={qrCodeUrl} alt={`${shareClient?.name ?? ''} WireGuard 配置二维码`} data-testid="wireguard-share-qr-image" />}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

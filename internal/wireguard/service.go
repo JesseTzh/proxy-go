@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/proxy-go/proxy-go/internal/config"
 	"github.com/proxy-go/proxy-go/internal/models"
@@ -32,9 +34,25 @@ type UpdateRequest struct {
 }
 
 type State struct {
-	Server  models.WireGuardServer   `json:"server"`
-	Clients []models.WireGuardClient `json:"clients"`
-	Runtime map[string]any           `json:"runtime"`
+	Server  models.WireGuardServer `json:"server"`
+	Clients []ClientState          `json:"clients"`
+	Runtime map[string]any         `json:"runtime"`
+}
+
+type ClientState struct {
+	models.WireGuardClient
+	Online          bool       `json:"online"`
+	LastHandshakeAt *time.Time `json:"lastHandshakeAt"`
+	UploadBytes     uint64     `json:"uploadBytes"`
+	DownloadBytes   uint64     `json:"downloadBytes"`
+	Endpoint        string     `json:"endpoint,omitempty"`
+}
+
+type peerRuntime struct {
+	LastHandshakeAt *time.Time
+	ReceiveBytes    uint64
+	TransmitBytes   uint64
+	Endpoint        string
 }
 
 func New(db *gorm.DB, cfg *config.Config) *Service {
@@ -73,7 +91,20 @@ func (s *Service) State(ctx context.Context) (State, error) {
 	if err != nil {
 		return State{}, err
 	}
-	return State{Server: server, Clients: clients, Runtime: s.Status(ctx)}, nil
+	runtime, peers := s.runtimeState(ctx, server)
+	clientStates := make([]ClientState, 0, len(clients))
+	for _, client := range clients {
+		clientState := ClientState{WireGuardClient: client}
+		if peer, ok := peers[client.PublicKey]; ok {
+			clientState.LastHandshakeAt = peer.LastHandshakeAt
+			clientState.UploadBytes = peer.ReceiveBytes
+			clientState.DownloadBytes = peer.TransmitBytes
+			clientState.Endpoint = peer.Endpoint
+			clientState.Online = client.Enabled && peer.LastHandshakeAt != nil && time.Since(*peer.LastHandshakeAt) <= 3*time.Minute
+		}
+		clientStates = append(clientStates, clientState)
+	}
+	return State{Server: server, Clients: clientStates, Runtime: runtime}, nil
 }
 
 func (s *Service) Update(ctx context.Context, req UpdateRequest) (models.WireGuardServer, error) {
@@ -273,7 +304,56 @@ func (s *Service) Status(ctx context.Context) map[string]any {
 	if err != nil {
 		return map[string]any{"running": false, "error": err.Error()}
 	}
-	return map[string]any{"running": s.isRunning(ctx, server.InterfaceName), "interface": server.InterfaceName, "configPath": s.configPath(server.InterfaceName)}
+	runtime, _ := s.runtimeState(ctx, server)
+	return runtime
+}
+
+func (s *Service) runtimeState(ctx context.Context, server models.WireGuardServer) (map[string]any, map[string]peerRuntime) {
+	runtime := map[string]any{"running": false, "interface": server.InterfaceName, "configPath": s.configPath(server.InterfaceName)}
+	output, err := exec.CommandContext(ctx, s.cfg.Runtime.WGBinary, "show", server.InterfaceName, "dump").Output()
+	if err != nil {
+		return runtime, nil
+	}
+	peers, err := parseDump(string(output))
+	if err != nil {
+		runtime["error"] = err.Error()
+		return runtime, nil
+	}
+	runtime["running"] = true
+	return runtime, peers
+}
+
+func parseDump(output string) (map[string]peerRuntime, error) {
+	peers := make(map[string]peerRuntime)
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) == "" {
+		return peers, fmt.Errorf("empty wireguard dump")
+	}
+	for _, line := range lines[1:] {
+		fields := strings.Split(line, "\t")
+		if len(fields) < 8 {
+			return nil, fmt.Errorf("invalid wireguard peer dump")
+		}
+		handshake, err := strconv.ParseInt(fields[4], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid wireguard handshake: %w", err)
+		}
+		received, err := strconv.ParseUint(fields[5], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid wireguard receive bytes: %w", err)
+		}
+		transmitted, err := strconv.ParseUint(fields[6], 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid wireguard transmit bytes: %w", err)
+		}
+		peer := peerRuntime{Endpoint: fields[2], ReceiveBytes: received, TransmitBytes: transmitted}
+		if handshake > 0 {
+			value := time.Unix(handshake, 0)
+			peer.LastHandshakeAt = &value
+		}
+		peers[fields[0]] = peer
+	}
+	return peers, nil
 }
 
 func (s *Service) isRunning(ctx context.Context, interfaceName string) bool {

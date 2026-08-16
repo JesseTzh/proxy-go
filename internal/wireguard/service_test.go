@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/proxy-go/proxy-go/internal/models"
 	"github.com/proxy-go/proxy-go/internal/testutil"
@@ -24,6 +25,32 @@ func TestEnsureServerCreatesWireGuardKeyPair(t *testing.T) {
 	}
 	if server.Address != "10.8.0.1/24" || server.ListenPort != 51820 || server.Enabled {
 		t.Fatalf("unexpected defaults: %#v", server)
+	}
+}
+
+func TestParseDumpReturnsPeerTrafficAndHandshake(t *testing.T) {
+	dump := "server-private\tserver-public\t51820\toff\nclient-public\tpsk\t198.51.100.8:54321\t10.8.0.2/32\t1700000000\t1234\t5678\t25\n"
+	peers, err := parseDump(dump)
+	if err != nil {
+		t.Fatalf("parse dump: %v", err)
+	}
+	peer := peers["client-public"]
+	if peer.Endpoint != "198.51.100.8:54321" || peer.ReceiveBytes != 1234 || peer.TransmitBytes != 5678 {
+		t.Fatalf("unexpected peer runtime: %#v", peer)
+	}
+	if peer.LastHandshakeAt == nil || !peer.LastHandshakeAt.Equal(time.Unix(1700000000, 0)) {
+		t.Fatalf("unexpected handshake: %v", peer.LastHandshakeAt)
+	}
+}
+
+func TestParseDumpTreatsZeroHandshakeAsNeverConnected(t *testing.T) {
+	dump := "server-private\tserver-public\t51820\toff\nclient-public\t(none)\t(none)\t10.8.0.2/32\t0\t0\t0\toff\n"
+	peers, err := parseDump(dump)
+	if err != nil {
+		t.Fatalf("parse dump: %v", err)
+	}
+	if peers["client-public"].LastHandshakeAt != nil {
+		t.Fatalf("expected no handshake, got %v", peers["client-public"].LastHandshakeAt)
 	}
 }
 
