@@ -23,6 +23,10 @@ func NewWithConfig(db *gorm.DB, cfg *config.Config) *Service {
 	return s
 }
 
+func NewWithIssuer(db *gorm.DB, cfg *config.Config, issuer CertificateIssuer) *Service {
+	return &Service{db: db, cfg: cfg, issuer: issuer}
+}
+
 func (s *Service) GetKeyAuthorization(token string) (string, bool) {
 	var ch models.ACMEChallenge
 	if err := s.db.Where("token = ? AND expires_at > ?", token, time.Now()).First(&ch).Error; err != nil {
