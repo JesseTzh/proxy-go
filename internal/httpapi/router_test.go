@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-playground/validator/v10"
 	"github.com/proxy-go/proxy-go/internal/acme"
 	"github.com/proxy-go/proxy-go/internal/audit"
@@ -76,6 +78,137 @@ func TestCertificateRoutesAreScopedUnderDomains(t *testing.T) {
 	assertStatus(t, router, http.MethodPost, "/api/certificates/issue", token, http.StatusNotFound)
 	assertStatus(t, router, http.MethodPost, "/api/domains/999/certificate/issue", token, http.StatusNotFound)
 	assertStatus(t, router, http.MethodPost, "/api/domains/"+itoa(domain.ID)+"/certificate/issue", token, http.StatusNotImplemented)
+}
+
+func TestDomainCertificateChangesApplyNginx(t *testing.T) {
+	for _, operation := range []string{"issue", "renew"} {
+		for _, failure := range []string{"", "issuer", "check", "reload"} {
+			t.Run(operation+"/"+failure, func(t *testing.T) {
+				cfg := testutil.NewConfig(t)
+				db := testutil.NewDB(t)
+				binary, logPath := fakeNginxBinary(t)
+				if failure == "check" || failure == "reload" {
+					argument := "-t"
+					if failure == "reload" {
+						argument = "-s"
+					}
+					script := "#!/bin/sh\nprintf '%s\\n' \"$*\" >> " + strconv.Quote(logPath) + "\nif [ \"$1\" = " + strconv.Quote(argument) + " ]; then exit 1; fi\nexit 0\n"
+					if err := os.WriteFile(binary, []byte(script), 0755); err != nil {
+						t.Fatalf("write failing nginx: %v", err)
+					}
+				}
+				domain := models.Domain{Domain: "dashboard.proxy.example.com", Status: "enabled"}
+				if err := db.Create(&domain).Error; err != nil {
+					t.Fatalf("create domain: %v", err)
+				}
+				if err := db.Model(&models.SystemSetting{}).Where("id=1").Update("management_domain", domain.Domain).Error; err != nil {
+					t.Fatalf("set management domain: %v", err)
+				}
+				if operation == "renew" {
+					cert := models.Certificate{PrimaryDomain: domain.Domain, Status: "valid"}
+					if err := db.Create(&cert).Error; err != nil {
+						t.Fatalf("create certificate: %v", err)
+					}
+					if err := db.Model(&domain).Update("certificate_id", cert.ID).Error; err != nil {
+						t.Fatalf("attach certificate: %v", err)
+					}
+				}
+				issuer := &routerCertificateIssuer{}
+				if failure == "issuer" {
+					issuer.err = errors.New("issuer failed")
+				}
+				router := Router(Deps{
+					Cfg:       cfg,
+					DB:        db,
+					Audit:     audit.New(db),
+					ACME:      acme.NewWithIssuer(db, cfg, issuer),
+					Nginx:     nginx.New(cfg, db, binary),
+					Limiter:   security.NewLoginLimiter(),
+					Validator: validator.New(),
+				})
+				token := createSession(t, db)
+				req := httptest.NewRequest(http.MethodPost, "/api/domains/"+itoa(domain.ID)+"/certificate/"+operation, nil)
+				req.AddCookie(&http.Cookie{Name: "proxy_go_session", Value: token})
+				rec := httptest.NewRecorder()
+				router.ServeHTTP(rec, req)
+				wantStatus := http.StatusOK
+				if failure != "" {
+					wantStatus = http.StatusInternalServerError
+					if failure == "issuer" && operation == "issue" {
+						wantStatus = http.StatusNotImplemented
+					}
+				}
+				if rec.Code != wantStatus {
+					t.Fatalf("expected %d, got %d: %s", wantStatus, rec.Code, rec.Body.String())
+				}
+				if issuer.domain != domain.Domain {
+					t.Fatalf("expected issuance for %s, got %s", domain.Domain, issuer.domain)
+				}
+				var setting models.SystemSetting
+				if err := db.First(&setting, 1).Error; err != nil {
+					t.Fatalf("load settings: %v", err)
+				}
+				if (setting.LastNginxReloadAt != nil) != (failure == "") {
+					t.Fatalf("unexpected nginx reload timestamp: %v", setting.LastNginxReloadAt)
+				}
+				if failure == "issuer" {
+					if _, err := os.Stat(logPath); !os.IsNotExist(err) {
+						t.Fatalf("nginx should not run after issuance failure: %v", err)
+					}
+					return
+				}
+				if err := db.Preload("Certificate").First(&domain, domain.ID).Error; err != nil {
+					t.Fatalf("load domain: %v", err)
+				}
+				if domain.Certificate == nil || domain.Certificate.Status != "valid" {
+					t.Fatalf("certificate should remain bound after issuance: %#v", domain.Certificate)
+				}
+				if failure == "check" || failure == "reload" {
+					if !bytes.Contains(rec.Body.Bytes(), []byte("nginx apply failed")) {
+						t.Fatalf("expected partial-success error: %s", rec.Body.String())
+					}
+					wantReloads := 0
+					if failure == "reload" {
+						wantReloads = 1
+					}
+					assertFakeNginxReloads(t, logPath, wantReloads)
+					return
+				}
+				assertFakeNginxReloads(t, logPath, 1)
+				conf, err := os.ReadFile(filepath.Join(cfg.Paths.NginxConfDir, "nginx.conf"))
+				if err != nil {
+					t.Fatalf("read nginx config: %v", err)
+				}
+				certPath := filepath.Join(cfg.Paths.CertDir, domain.Domain, "fullchain.pem")
+				if !bytes.Contains(conf, []byte("ssl_certificate "+certPath+";")) || bytes.Contains(conf, []byte("/default/fullchain.pem")) {
+					t.Fatalf("nginx did not switch to management certificate:\n%s", conf)
+				}
+				var body struct {
+					OK   bool          `json:"ok"`
+					Data models.Domain `json:"data"`
+				}
+				if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+					t.Fatalf("decode response: %v", err)
+				}
+				if !body.OK || body.Data.Certificate == nil || body.Data.Certificate.Status != "valid" {
+					t.Fatalf("unexpected certificate response: %s", rec.Body.String())
+				}
+			})
+		}
+	}
+}
+
+type routerCertificateIssuer struct {
+	domain string
+	err    error
+}
+
+func (s *routerCertificateIssuer) Obtain(domain string) (*certificate.Resource, error) {
+	s.domain = domain
+	if s.err != nil {
+		return nil, s.err
+	}
+	return &certificate.Resource{Certificate: []byte("test certificate"), PrivateKey: []byte("test key")}, nil
 }
 
 func TestSingBoxLogsRouteReturnsLogSummaryAndLegacyCoreRouteIsGone(t *testing.T) {

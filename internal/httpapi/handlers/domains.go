@@ -192,6 +192,17 @@ func IssueDomainCertificate(d Deps) gin.HandlerFunc {
 			response.Error(c, 501, err.Error())
 			return
 		}
+		if d.Nginx != nil {
+			if err := d.Nginx.Apply(context.Background()); err != nil {
+				response.Error(c, 500, "certificate issued, but nginx apply failed: "+err.Error())
+				return
+			}
+			now := time.Now()
+			if err := d.DB.Model(&models.SystemSetting{}).Where("id=1").Update("last_nginx_reload_at", &now).Error; err != nil {
+				response.Error(c, 500, err.Error())
+				return
+			}
+		}
 		item, err := domainssvc.New(d.DB).Get(id)
 		if err != nil {
 			response.Error(c, 404, "not found")
@@ -217,6 +228,17 @@ func RenewDomainCertificate(d Deps) gin.HandlerFunc {
 			}
 			response.Error(c, 500, err.Error())
 			return
+		}
+		if d.Nginx != nil {
+			if err := d.Nginx.Apply(context.Background()); err != nil {
+				response.Error(c, 500, "certificate renewed, but nginx apply failed: "+err.Error())
+				return
+			}
+			now := time.Now()
+			if err := d.DB.Model(&models.SystemSetting{}).Where("id=1").Update("last_nginx_reload_at", &now).Error; err != nil {
+				response.Error(c, 500, err.Error())
+				return
+			}
 		}
 		item, err := domainssvc.New(d.DB).Get(id)
 		if err != nil {
