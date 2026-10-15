@@ -1,5 +1,6 @@
 import ky from 'ky'
 import { beginApiRequest, endApiRequest, showApiError } from './apiUi'
+import { isMockMode, mockFetch } from './mockApi'
 
 export const api = ky.create({ prefix: '/api', credentials: 'include', timeout: 15000 })
 
@@ -57,11 +58,9 @@ function normalizeOptions(options: RequestOptions, defaultLoading: boolean): Nor
 async function requestJson<T>(method: 'get' | 'post' | 'put' | 'delete', url: string, json: unknown, options: NormalizedRequestOptions): Promise<T> {
   beginApiRequest(options.loading)
   try {
-    const response = await api(url, {
-      method,
-      json,
-      throwHttpErrors: false,
-    })
+    const response = isMockMode
+      ? await mockFetch(`/api/${url}`, { method, body: json === undefined ? undefined : JSON.stringify(json) })
+      : await api(url, { method, json, throwHttpErrors: false })
     const body = await parseJson(response)
     const message = errorMessage(body)
 

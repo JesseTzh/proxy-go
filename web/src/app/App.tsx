@@ -1,7 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Toaster } from 'sonner'
 import { ApiFeedback } from '../components/ApiFeedback'
+import { MockDebugPanel } from '../components/MockDebugPanel'
 import { getJson, postJson } from '../lib/api'
+import { isMockMode } from '../lib/mockApi'
 
 const LoginPage = lazy(() => import('../pages/LoginPage').then(module => ({ default: module.LoginPage })))
 const AuthenticatedApp = lazy(() => import('./AuthenticatedApp').then(module => ({ default: module.AuthenticatedApp })))
@@ -10,6 +12,12 @@ export function App() {
   const [authed, setAuthed] = useState(false)
   const [checking, setChecking] = useState(true)
   useEffect(() => { getJson('auth/me', { silentError: true }).then(()=>setAuthed(true)).catch(()=>setAuthed(false)).finally(()=>setChecking(false)) }, [])
+  useEffect(() => {
+    if (!isMockMode) return
+    const syncAuth = (event: Event) => setAuthed((event as CustomEvent<boolean>).detail)
+    window.addEventListener('proxy-go:mock-auth', syncAuth)
+    return () => window.removeEventListener('proxy-go:mock-auth', syncAuth)
+  }, [])
 
   async function logout() {
     await postJson('auth/logout')
@@ -24,6 +32,7 @@ export function App() {
       </Suspense>
       <Toaster richColors />
       <ApiFeedback />
+      <MockDebugPanel />
     </>
   )
 }

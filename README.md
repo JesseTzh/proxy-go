@@ -87,3 +87,33 @@ pnpm build
 cd ..
 ./scripts/dev.sh
 ```
+
+## Mock 前端调试
+
+Mock API 会在浏览器本地保存一组独立演示数据，无需运行 Go 服务。启动时设置 `VITE_MOCK_API=true`：
+
+```bash
+cd web
+VITE_MOCK_API=true pnpm dev
+```
+
+页面右下角的「Mock 调试」面板可以调整请求延迟、让下一次 API 请求返回 503、切换登录态、查看请求记录和重置数据。此模式只用于本地调试与 CI，不会写入后端。
+
+## 截图图库与 GitHub Pages
+
+`.github/workflows/mock-gallery.yml` 会在 Pull Request 中构建 Mock 前端并用 Chromium 操作各模块和关键操作，手机、桌面截图作为 CI artifact 保存。每次推送 `main` 时，同一工作流还会生成静态功能介绍与截图图库并部署到 GitHub Pages。
+
+首次启用时，在 GitHub 仓库 **Settings → Pages → Build and deployment** 将 **Source** 设为 **GitHub Actions**。之后推送 `main` 即会更新页面，部署地址会显示在 workflow summary 和 `github-pages` environment 中。
+
+本地生成图库：
+
+```bash
+cd web
+VITE_MOCK_API=true pnpm build
+cd ..
+npm install --no-package-lock --prefix scripts/ci/web
+npx --prefix scripts/ci/web playwright install chromium
+bash scripts/ci/verify-mock-pages.sh
+```
+
+生成的完整静态站点位于 `mock-page-artifacts/site`，截图与浏览器日志位于 `mock-page-artifacts`。
