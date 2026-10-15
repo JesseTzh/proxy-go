@@ -23,6 +23,7 @@ type ReverseProxy struct {
 }
 
 type ProxyInbound struct {
+	CertDir                string
 	ID                     uint
 	Name                   string
 	Template               string
@@ -42,4 +43,9 @@ type ProxyInbound struct {
 	RealityHandshakeServer string
 	RealityHandshakePort   int
 	RealityMaxTimeDiff     int
+	Hysteria2ObfsType      string
+	Hysteria2ObfsPassword  string
+	Hysteria2UpMbps        int
+	Hysteria2DownMbps      int
+	Hysteria2Masquerade    string
 }

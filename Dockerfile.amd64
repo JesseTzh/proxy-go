@@ -101,7 +101,7 @@ RUN ./configure \
 ############################
 FROM --platform=linux/amd64 debian:bookworm-slim AS sing-box-downloader
 
-ARG SING_BOX_VERSION=1.13.13
+ARG SING_BOX_VERSION=1.14.3
 ARG SING_BOX_URL=""
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -234,7 +234,7 @@ WORKDIR /var/lib/proxy-go
 # 80: HTTP-01 / HTTP 跳转
 # 443: sing-box 代理公网入口，普通 HTTPS 回落到内部 Nginx
 # 30080: 初始管理端口
-EXPOSE 80/tcp 443/tcp 30080/tcp
+EXPOSE 80/tcp 443/tcp 443/udp 30080/tcp
 
 VOLUME ["/var/lib/proxy-go", "/var/log/proxy-go"]
 

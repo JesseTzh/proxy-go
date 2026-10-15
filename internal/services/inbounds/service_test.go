@@ -86,6 +86,33 @@ func TestCreateAnyTLSGeneratesPasswordAndUsesDomainSNI(t *testing.T) {
 	}
 }
 
+func TestHysteria2IsUniqueAndRequiresValidCertificate(t *testing.T) {
+	db := testutil.NewDB(t)
+	cfg := testutil.NewConfig(t)
+	cert := models.Certificate{ID: 1, PrimaryDomain: "udp.example.com", CertFilePath: "/certs/udp.example.com/fullchain.pem", KeyFilePath: "/certs/udp.example.com/privkey.pem", Status: "valid"}
+	if err := db.Create(&cert).Error; err != nil {
+		t.Fatalf("create certificate: %v", err)
+	}
+	certID := cert.ID
+	db.Create(&models.Domain{ID: 1, Domain: "udp.example.com", Status: "enabled", CertificateID: &certID})
+	db.Create(&models.Domain{ID: 2, Domain: "other.example.com", Status: "enabled"})
+	svc := New(db, cfg, fakeGenerator())
+
+	item, err := svc.Create(context.Background(), CreateRequest{Template: "hysteria2", DomainID: 1})
+	if err != nil {
+		t.Fatalf("create hysteria2 inbound: %v", err)
+	}
+	if item.Network != "udp" || item.Security != "tls" || item.Password == "" {
+		t.Fatalf("unexpected hysteria2 defaults: %#v", item)
+	}
+	if _, err := svc.Create(context.Background(), CreateRequest{Template: "hysteria2", DomainID: 2}); err == nil || !strings.Contains(err.Error(), "only one hysteria2 inbound") {
+		t.Fatalf("expected unique hysteria2 error, got %v", err)
+	}
+	if _, err := svc.Update(context.Background(), item.ID, CreateRequest{Template: "hysteria2", DomainID: 2}); err == nil || !strings.Contains(err.Error(), "valid certificate") {
+		t.Fatalf("expected missing certificate error on update, got %v", err)
+	}
+}
+
 func TestUpdateAnyTLSRecomputesRouteSNIWhenDomainChanges(t *testing.T) {
 	db := testutil.NewDB(t)
 	cfg := testutil.NewConfig(t)

@@ -32,6 +32,11 @@ type CreateRequest struct {
 	Name                   string `json:"name"`
 	DomainID               uint   `json:"domainId"`
 	RealityHandshakeServer string `json:"realityHandshakeServer"`
+	Hysteria2ObfsType      string `json:"hysteria2ObfsType"`
+	Hysteria2ObfsPassword  string `json:"hysteria2ObfsPassword"`
+	Hysteria2UpMbps        int    `json:"hysteria2UpMbps"`
+	Hysteria2DownMbps      int    `json:"hysteria2DownMbps"`
+	Hysteria2Masquerade    string `json:"hysteria2Masquerade"`
 }
 
 type ShareDetails struct {
@@ -50,7 +55,9 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (models.ProxyIn
 		Name:                   req.Name,
 		DomainID:               req.DomainID,
 		RealityHandshakeServer: req.RealityHandshakeServer,
-		Enabled:                true,
+		Hysteria2ObfsType:      req.Hysteria2ObfsType, Hysteria2ObfsPassword: req.Hysteria2ObfsPassword,
+		Hysteria2UpMbps: req.Hysteria2UpMbps, Hysteria2DownMbps: req.Hysteria2DownMbps, Hysteria2Masquerade: req.Hysteria2Masquerade,
+		Enabled: true,
 	}
 	if err := s.applyDefaults(&item); err != nil {
 		return item, err
@@ -68,6 +75,9 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (models.ProxyIn
 		return item, err
 	}
 	if err := s.validateRouteSNIUniqueness(&item); err != nil {
+		return item, err
+	}
+	if err := s.validateHysteria2(&item); err != nil {
 		return item, err
 	}
 	if err := s.validateDomainMapping(item.DomainID, 0); err != nil {
@@ -91,6 +101,11 @@ func (s *Service) Update(ctx context.Context, id uint, req CreateRequest) (model
 	item.Domain = models.Domain{}
 	item.RouteSNI = ""
 	item.RealityHandshakeServer = req.RealityHandshakeServer
+	item.Hysteria2ObfsType = req.Hysteria2ObfsType
+	item.Hysteria2ObfsPassword = req.Hysteria2ObfsPassword
+	item.Hysteria2UpMbps = req.Hysteria2UpMbps
+	item.Hysteria2DownMbps = req.Hysteria2DownMbps
+	item.Hysteria2Masquerade = req.Hysteria2Masquerade
 	if err := s.applyDefaults(&item); err != nil {
 		return item, err
 	}
@@ -104,6 +119,9 @@ func (s *Service) Update(ctx context.Context, id uint, req CreateRequest) (model
 		return item, err
 	}
 	if err := s.validateRouteSNIUniqueness(&item); err != nil {
+		return item, err
+	}
+	if err := s.validateHysteria2(&item); err != nil {
 		return item, err
 	}
 	if err := s.validateDomainMapping(item.DomainID, item.ID); err != nil {
@@ -130,6 +148,13 @@ func (s *Service) populateMissingCredentials(ctx context.Context, item *models.P
 			}
 			item.Password = password
 		}
+	case "hysteria2":
+		if item.Password == "" {
+			return s.populateCredentials(ctx, item)
+		}
+		if item.Hysteria2ObfsType != "" && item.Hysteria2ObfsPassword == "" {
+			item.Hysteria2ObfsPassword = item.Password
+		}
 	}
 	return nil
 }
@@ -153,6 +178,9 @@ func (s *Service) SetEnabled(id uint, enabled bool) error {
 		return err
 	}
 	if err := s.validateRouteSNIUniqueness(&item); err != nil {
+		return err
+	}
+	if err := s.validateHysteria2(&item); err != nil {
 		return err
 	}
 	return s.db.Model(&models.ProxyInbound{}).Where("id = ?", id).Updates(map[string]any{
@@ -186,6 +214,15 @@ func (s *Service) populateCredentials(ctx context.Context, item *models.ProxyInb
 			return err
 		}
 		item.Password = password
+	case "hysteria2":
+		password, err := s.generator.Password()
+		if err != nil {
+			return err
+		}
+		item.Password = password
+		if item.Hysteria2ObfsPassword == "" {
+			item.Hysteria2ObfsPassword = password
+		}
 	}
 	return nil
 }
@@ -256,6 +293,25 @@ func (s *Service) applyDefaults(item *models.ProxyInbound) error {
 			item.RouteSNI = domain
 		}
 		item.RouteSNI = normalizeDNSName(item.RouteSNI)
+	case "hysteria2":
+		if item.Name == "" {
+			item.Name = "Hysteria2"
+		}
+		item.Protocol = "hysteria2"
+		item.Network = "udp"
+		item.Security = "tls"
+		item.Flow = ""
+		item.RealityHandshakeServer = ""
+		item.RealityHandshakePort = 0
+		item.RealityMaxTimeDiff = 0
+		domain, err := s.domainName(item.DomainID)
+		if err != nil {
+			return err
+		}
+		item.RouteSNI = domain
+		if item.Hysteria2ObfsType != "" && item.Hysteria2ObfsType != "salamander" && item.Hysteria2ObfsType != "gecko" {
+			return fmt.Errorf("unsupported hysteria2 obfs type %q", item.Hysteria2ObfsType)
+		}
 	default:
 		return fmt.Errorf("unsupported inbound template %q", item.Template)
 	}
@@ -327,6 +383,9 @@ func validate(item *models.ProxyInbound) error {
 	}
 	if item.Template == "anytls" && item.Password == "" {
 		return errors.New("anytls password required")
+	}
+	if item.Template == "hysteria2" && item.Password == "" {
+		return errors.New("hysteria2 password required")
 	}
 	return nil
 }
@@ -426,8 +485,34 @@ func (s *Service) validateRouteSNIUniqueness(item *models.ProxyInbound) error {
 	return nil
 }
 
+func (s *Service) validateHysteria2(item *models.ProxyInbound) error {
+	if item.Template != "hysteria2" {
+		return nil
+	}
+	var count int64
+	query := s.db.Model(&models.ProxyInbound{}).Where("template = ?", "hysteria2")
+	if item.ID != 0 {
+		query = query.Where("id <> ?", item.ID)
+	}
+	if err := query.Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return errors.New("only one hysteria2 inbound is supported")
+	}
+	var domain models.Domain
+	if err := s.db.Preload("Certificate").First(&domain, item.DomainID).Error; err != nil {
+		return err
+	}
+	if domain.Certificate == nil || domain.Certificate.Status != "valid" || domain.Certificate.CertFilePath == "" || domain.Certificate.KeyFilePath == "" {
+		return errors.New("hysteria2 requires a valid certificate for the selected domain")
+	}
+	return nil
+}
+
 func (s *Service) toRuntimeInbound(item models.ProxyInbound) runtimeconfig.ProxyInbound {
 	return runtimeconfig.ProxyInbound{
+		CertDir:                s.cfg.Paths.CertDir,
 		ID:                     item.ID,
 		Name:                   item.Name,
 		Template:               item.Template,
@@ -447,6 +532,8 @@ func (s *Service) toRuntimeInbound(item models.ProxyInbound) runtimeconfig.Proxy
 		RealityHandshakeServer: item.RealityHandshakeServer,
 		RealityHandshakePort:   item.RealityHandshakePort,
 		RealityMaxTimeDiff:     item.RealityMaxTimeDiff,
+		Hysteria2ObfsType:      item.Hysteria2ObfsType, Hysteria2ObfsPassword: item.Hysteria2ObfsPassword,
+		Hysteria2UpMbps: item.Hysteria2UpMbps, Hysteria2DownMbps: item.Hysteria2DownMbps, Hysteria2Masquerade: item.Hysteria2Masquerade,
 	}
 }
 
@@ -459,9 +546,23 @@ func shareURI(item models.ProxyInbound) (string, error) {
 		return shareVLESSRealityVisionURI(item)
 	case "anytls":
 		return shareAnyTLSURI(item)
+	case "hysteria2":
+		return shareHysteria2URI(item)
 	default:
 		return "", fmt.Errorf("unsupported inbound template %q", item.Template)
 	}
+}
+
+func shareHysteria2URI(item models.ProxyInbound) (string, error) {
+	if item.Password == "" {
+		return "", errors.New("inbound hysteria2 password missing")
+	}
+	query := url.Values{"sni": []string{item.Domain.Domain}}
+	if item.Hysteria2ObfsType != "" {
+		query.Set("obfs", item.Hysteria2ObfsType)
+		query.Set("obfs-password", item.Hysteria2ObfsPassword)
+	}
+	return (&url.URL{Scheme: "hysteria2", User: url.User(item.Password), Host: net.JoinHostPort(item.Domain.Domain, "443"), RawQuery: query.Encode(), Fragment: item.Name}).String(), nil
 }
 
 func shareVLESSRealityVisionURI(item models.ProxyInbound) (string, error) {

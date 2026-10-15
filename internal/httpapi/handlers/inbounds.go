@@ -29,6 +29,10 @@ type inboundResponse struct {
 	ListenAddr             string        `json:"listenAddr"`
 	ListenPort             int           `json:"listenPort"`
 	RealityHandshakeServer string        `json:"realityHandshakeServer"`
+	Hysteria2ObfsType      string        `json:"hysteria2ObfsType"`
+	Hysteria2UpMbps        int           `json:"hysteria2UpMbps"`
+	Hysteria2DownMbps      int           `json:"hysteria2DownMbps"`
+	Hysteria2Masquerade    string        `json:"hysteria2Masquerade"`
 	Enabled                bool          `json:"enabled"`
 }
 
@@ -235,6 +239,7 @@ func toInboundResponse(item models.ProxyInbound) inboundResponse {
 		ListenAddr:             item.ListenAddr,
 		ListenPort:             item.ListenPort,
 		RealityHandshakeServer: item.RealityHandshakeServer,
-		Enabled:                item.Enabled,
+		Hysteria2ObfsType:      item.Hysteria2ObfsType, Hysteria2UpMbps: item.Hysteria2UpMbps, Hysteria2DownMbps: item.Hysteria2DownMbps, Hysteria2Masquerade: item.Hysteria2Masquerade,
+		Enabled: item.Enabled,
 	}
 }

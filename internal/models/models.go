@@ -104,6 +104,11 @@ type ProxyInbound struct {
 	RealityPublicKey       string    `json:"-"`
 	RealityShortID         string    `json:"-"`
 	RealityMaxTimeDiff     int       `json:"realityMaxTimeDiff"`
+	Hysteria2ObfsType      string    `json:"hysteria2ObfsType"`
+	Hysteria2ObfsPassword  string    `json:"-"`
+	Hysteria2UpMbps        int       `json:"hysteria2UpMbps"`
+	Hysteria2DownMbps      int       `json:"hysteria2DownMbps"`
+	Hysteria2Masquerade    string    `json:"hysteria2Masquerade"`
 	Enabled                bool      `json:"enabled"`
 	CreatedAt              time.Time `json:"createdAt"`
 	UpdatedAt              time.Time `json:"updatedAt"`

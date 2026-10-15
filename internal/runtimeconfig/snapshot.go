@@ -63,6 +63,7 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 		}
 		snapshot.ProxyInbounds = append(snapshot.ProxyInbounds, ProxyInbound{
 			ID:                     inbound.ID,
+			CertDir:                snapshot.CertDir,
 			Name:                   inbound.Name,
 			Template:               inbound.Template,
 			Protocol:               inbound.Protocol,
@@ -81,6 +82,11 @@ func LoadWithConfig(db *gorm.DB, cfg *config.Config) (Snapshot, error) {
 			RealityHandshakeServer: inbound.RealityHandshakeServer,
 			RealityHandshakePort:   inbound.RealityHandshakePort,
 			RealityMaxTimeDiff:     inbound.RealityMaxTimeDiff,
+			Hysteria2ObfsType:      inbound.Hysteria2ObfsType,
+			Hysteria2ObfsPassword:  inbound.Hysteria2ObfsPassword,
+			Hysteria2UpMbps:        inbound.Hysteria2UpMbps,
+			Hysteria2DownMbps:      inbound.Hysteria2DownMbps,
+			Hysteria2Masquerade:    inbound.Hysteria2Masquerade,
 		})
 	}
 

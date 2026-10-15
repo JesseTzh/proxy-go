@@ -23,6 +23,7 @@ const defaults: InboundFormValues = {
   name: 'VLESS Reality Vision',
   domainId: 1,
   realityHandshakeServer: 'apple.com',
+  hysteria2ObfsType: 'salamander', hysteria2ObfsPassword: '', hysteria2UpMbps: 0, hysteria2DownMbps: 0, hysteria2Masquerade: '',
 }
 
 export function VlessPage() {
@@ -125,7 +126,7 @@ export function VlessPage() {
   return (
     <div className="space-y-4" data-testid="inbounds-page">
       <div className="flex flex-wrap items-start justify-between gap-3" data-testid="inbounds-toolbar">
-        <PageHeader title="代理入口" desc="管理经 Nginx SNI 分流进入 sing-box 的 Reality Vision 与 AnyTLS 入站。" data-testid="inbounds-header" />
+        <PageHeader title="代理入口" desc="管理 VLESS Reality Vision、AnyTLS 与 Hysteria2 入站。" data-testid="inbounds-header" />
         <Button onClick={openCreate} data-testid="inbound-create-button">
           <Plus size={16} aria-hidden="true" />
           新增入口
@@ -173,6 +174,7 @@ export function VlessPage() {
         <InboundDialog
           domains={domains}
           initial={editing ? valuesFromItem(editing) : nextDefaults}
+          allowHysteria2={!items.some(item => item.template === 'hysteria2' && item.id !== editing?.id)}
           title={editing ? '编辑代理入口' : '新增代理入口'}
           onClose={() => {
             setOpen(false)
@@ -222,12 +224,14 @@ export function VlessPage() {
 function InboundDialog({
   domains,
   initial,
+  allowHysteria2,
   title,
   onClose,
   onSubmit,
 }: {
   domains: { id: number; domain: string }[]
   initial: InboundFormValues
+  allowHysteria2: boolean
   title: string
   onClose: () => void
   onSubmit: (values: InboundFormValues) => Promise<void>
@@ -249,7 +253,7 @@ function InboundDialog({
             className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
             data-testid="inbound-public-entry-note"
           >
-            公网 443 由 Nginx stream 统一监听；匹配分流 SNI 后透传到本机 sing-box 入站。
+            TCP 443 由 Nginx stream 按 SNI 分流；UDP 443 专用于唯一的 Hysteria2 入站。
           </div>
 
           <section className="grid gap-3" data-testid="inbound-basic-section">
@@ -267,6 +271,7 @@ function InboundDialog({
                       <SelectContent>
                         <SelectItem value="vless-reality-vision" label="VLESS Reality Vision">VLESS Reality Vision</SelectItem>
                         <SelectItem value="anytls" label="AnyTLS">AnyTLS</SelectItem>
+                        <SelectItem value="hysteria2" label="Hysteria2" disabled={!allowHysteria2}>Hysteria2{!allowHysteria2 ? '（已存在）' : ''}</SelectItem>
                       </SelectContent>
                     </Select>
                   )}
@@ -283,7 +288,7 @@ function InboundDialog({
             <div className="grid gap-4 md:grid-cols-2" data-testid="inbound-entry-section-fields">
               <FormField
                 label="客户端连接域名"
-                description={template === 'anytls' ? 'AnyTLS 使用该域名作为 TLS 证书域名和 SNI 分流入口。' : 'Reality Vision 客户端实际连接的域名，用于生成分享链接地址。'}
+                description={template === 'anytls' ? 'AnyTLS 使用该域名作为 TLS 证书域名和 SNI 分流入口。' : template === 'hysteria2' ? 'Hysteria2 使用该域名的有效证书；请先在证书管理中签发并启用证书。' : 'Reality Vision 客户端实际连接的域名，用于生成分享链接地址。'}
                 error={errors.domainId?.message}
                 data-testid="inbound-domain-field"
               >
@@ -323,6 +328,19 @@ function InboundDialog({
             </section>
           ) : null}
 
+          {template === 'hysteria2' ? (
+            <section className="grid gap-3" data-testid="inbound-hysteria2-section">
+              <h3 className="text-sm font-medium text-neutral-900">Hysteria2</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField label="混淆类型"><Controller control={control} name="hysteria2ObfsType" render={({ field }) => <Select value={field.value} onValueChange={field.onChange}><SelectTrigger data-testid="inbound-hysteria2-obfs-select"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="salamander">Salamander</SelectItem><SelectItem value="gecko">Gecko</SelectItem><SelectItem value="">关闭</SelectItem></SelectContent></Select>} /></FormField>
+                <FormField label="混淆密码"><Input {...register('hysteria2ObfsPassword')} data-testid="inbound-hysteria2-obfs-password" /></FormField>
+                <FormField label="上行 Mbps"><Input type="number" {...register('hysteria2UpMbps')} data-testid="inbound-hysteria2-up-mbps" /></FormField>
+                <FormField label="下行 Mbps"><Input type="number" {...register('hysteria2DownMbps')} data-testid="inbound-hysteria2-down-mbps" /></FormField>
+                <FormField label="伪装地址"><Input {...register('hysteria2Masquerade')} placeholder="https://example.com" data-testid="inbound-hysteria2-masquerade" /></FormField>
+              </div>
+            </section>
+          ) : null}
+
           <DialogFooter>
             <Button variant="outline" type="button" onClick={onClose} data-testid="inbound-cancel-button">取消</Button>
             <Button type="submit" disabled={isSubmitting} data-testid="inbound-submit-button">{isSubmitting ? '保存中…' : '保存'}</Button>
@@ -339,6 +357,7 @@ function valuesFromItem(item: ProxyInbound): InboundFormValues {
     name: item.name,
     domainId: item.domainId,
     realityHandshakeServer: item.realityHandshakeServer || 'apple.com',
+    hysteria2ObfsType: (item.hysteria2ObfsType || 'salamander') as InboundFormValues['hysteria2ObfsType'], hysteria2ObfsPassword: '', hysteria2UpMbps: item.hysteria2UpMbps || 0, hysteria2DownMbps: item.hysteria2DownMbps || 0, hysteria2Masquerade: item.hysteria2Masquerade || '',
   }
 }
 
@@ -348,6 +367,7 @@ function formatInboundListen(item: ProxyInbound) {
 }
 
 function protocolLabel(template: ProxyInbound['template']) {
+  if (template === 'hysteria2') return 'Hysteria2'
   return template === 'anytls' ? 'AnyTLS' : 'VLESS Reality Vision'
 }
 

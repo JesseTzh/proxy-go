@@ -39,9 +39,34 @@ func RenderInbound(in runtimeconfig.ProxyInbound, certDir string) (map[string]an
 		return renderVLESSRealityVision(in), nil
 	case "anytls":
 		return renderAnyTLS(in, certDir), nil
+	case "hysteria2":
+		return renderHysteria2(in, certDir), nil
 	default:
 		return nil, fmt.Errorf("unsupported inbound template %q", in.Template)
 	}
+}
+
+func renderHysteria2(in runtimeconfig.ProxyInbound, certDir string) map[string]any {
+	result := map[string]any{
+		"type": "hysteria2", "tag": inboundTag(in), "listen": in.ListenAddr, "listen_port": in.ListenPort,
+		"users": []any{map[string]any{"name": inboundUserName(in), "password": in.Password}},
+		"tls": map[string]any{"enabled": true, "server_name": in.Domain,
+			"certificate_path": filepath.Join(certDir, in.Domain, "fullchain.pem"),
+			"key_path":         filepath.Join(certDir, in.Domain, "privkey.pem")},
+	}
+	if in.Hysteria2UpMbps > 0 {
+		result["up_mbps"] = in.Hysteria2UpMbps
+	}
+	if in.Hysteria2DownMbps > 0 {
+		result["down_mbps"] = in.Hysteria2DownMbps
+	}
+	if in.Hysteria2ObfsType != "" {
+		result["obfs"] = map[string]any{"type": in.Hysteria2ObfsType, "password": in.Hysteria2ObfsPassword}
+	}
+	if in.Hysteria2Masquerade != "" {
+		result["masquerade"] = in.Hysteria2Masquerade
+	}
+	return result
 }
 
 func renderVLESSRealityVision(in runtimeconfig.ProxyInbound) map[string]any {

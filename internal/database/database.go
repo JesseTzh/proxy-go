@@ -54,6 +54,7 @@ func seedDefaults(db *gorm.DB, cfg *config.Config) error {
 	}{
 		{"VLESS Reality Vision", true},
 		{"AnyTLS", true},
+		{"Hysteria2", true},
 	}
 	for _, c := range caps {
 		var cap models.ProtocolCapability

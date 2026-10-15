@@ -8,7 +8,7 @@ import (
 	"github.com/proxy-go/proxy-go/internal/runtimeconfig"
 )
 
-func TestRenderVLESSRealityVisionAndAnyTLS(t *testing.T) {
+func TestRenderVLESSRealityVisionAnyTLSAndHysteria2(t *testing.T) {
 	out, err := Render(runtimeconfig.Snapshot{
 		CertDir: "/certs",
 		ProxyInbounds: []runtimeconfig.ProxyInbound{
@@ -45,6 +45,22 @@ func TestRenderVLESSRealityVisionAndAnyTLS(t *testing.T) {
 				RouteSNI:   "any.example.com",
 				Password:   "secret-password",
 			},
+			{
+				ID:                    3,
+				Name:                  "hysteria",
+				Template:              "hysteria2",
+				Protocol:              "hysteria2",
+				Domain:                "udp.example.com",
+				ListenAddr:            "127.0.0.1",
+				ListenPort:            31003,
+				Security:              "tls",
+				RouteSNI:              "udp.example.com",
+				Password:              "secret-password",
+				Hysteria2ObfsType:     "salamander",
+				Hysteria2ObfsPassword: "obfs-secret",
+				Hysteria2UpMbps:       50,
+				Hysteria2DownMbps:     100,
+			},
 		},
 	})
 	if err != nil {
@@ -60,8 +76,8 @@ func TestRenderVLESSRealityVisionAndAnyTLS(t *testing.T) {
 		t.Fatalf("decode config: %v\n%s", err, text)
 	}
 	inbounds := cfg["inbounds"].([]any)
-	if len(inbounds) != 2 {
-		t.Fatalf("expected 2 inbounds: %#v", inbounds)
+	if len(inbounds) != 3 {
+		t.Fatalf("expected 3 inbounds: %#v", inbounds)
 	}
 
 	vision := inbounds[0].(map[string]any)
@@ -96,6 +112,18 @@ func TestRenderVLESSRealityVisionAndAnyTLS(t *testing.T) {
 	}
 	if anytlsTLS["certificate_path"] != "/certs/any.example.com/fullchain.pem" || anytlsTLS["key_path"] != "/certs/any.example.com/privkey.pem" {
 		t.Fatalf("unexpected anytls certificate paths: %#v", anytlsTLS)
+	}
+	hysteria := inbounds[2].(map[string]any)
+	if hysteria["type"] != "hysteria2" || hysteria["listen"] != "127.0.0.1" || int(hysteria["listen_port"].(float64)) != 31003 {
+		t.Fatalf("unexpected hysteria2 inbound basics: %#v", hysteria)
+	}
+	hysteriaTLS := hysteria["tls"].(map[string]any)
+	if hysteriaTLS["certificate_path"] != "/certs/udp.example.com/fullchain.pem" || hysteriaTLS["key_path"] != "/certs/udp.example.com/privkey.pem" {
+		t.Fatalf("unexpected hysteria2 certificate paths: %#v", hysteriaTLS)
+	}
+	obfs := hysteria["obfs"].(map[string]any)
+	if obfs["type"] != "salamander" || obfs["password"] != "obfs-secret" || hysteria["up_mbps"] != float64(50) || hysteria["down_mbps"] != float64(100) {
+		t.Fatalf("unexpected hysteria2 options: %#v", hysteria)
 	}
 }
 

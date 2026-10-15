@@ -201,9 +201,9 @@ events { worker_connections 4096; }
 
 stream {
     map $ssl_preread_server_name $proxy_go_stream_backend {
-        {{ range $inbound := .Inbounds }}
+        {{ range $inbound := .Inbounds }}{{ if ne $inbound.Template "hysteria2" }}
         {{ $inbound.RouteSNI }} {{ $inbound.ListenAddr }}:{{ $inbound.ListenPort }};
-        {{ end }}
+        {{ end }}{{ end }}
         default {{.ManagedHTTPSAddr}};
     }
 
@@ -212,6 +212,13 @@ stream {
         proxy_pass $proxy_go_stream_backend;
         ssl_preread on;
     }
+
+    {{ range $inbound := .Inbounds }}{{ if eq $inbound.Template "hysteria2" }}
+    server {
+        listen {{$.HTTPSPort}} udp;
+        proxy_pass {{ $inbound.ListenAddr }}:{{ $inbound.ListenPort }};
+    }
+    {{ end }}{{ end }}
 }
 
 http {

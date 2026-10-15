@@ -35,6 +35,13 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 					ListenPort: 31002,
 					RouteSNI:   "any.example.com",
 				},
+				{
+					Template:   "hysteria2",
+					Domain:     "udp.example.com",
+					ListenAddr: "127.0.0.1",
+					ListenPort: 31003,
+					RouteSNI:   "udp.example.com",
+				},
 			},
 		},
 		PidFile:           "/run/nginx.pid",
@@ -63,6 +70,8 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 		"ssl_preread on;",
 		"apple.com 127.0.0.1:31001;",
 		"any.example.com 127.0.0.1:31002;",
+		"listen 443 udp;",
+		"proxy_pass 127.0.0.1:31003;",
 		"default 127.0.0.1:30443;",
 	} {
 		if !strings.Contains(out, want) {
@@ -74,5 +83,8 @@ func TestRenderMapsDomainsAndHTTPChallenge(t *testing.T) {
 	}
 	if strings.Contains(out, "proxy_pass http://127.0.0.1:31002;") {
 		t.Fatalf("nginx should only stream proxy protocol inbounds:\n%s", out)
+	}
+	if strings.Contains(out, "udp.example.com 127.0.0.1:31003;") {
+		t.Fatalf("hysteria2 should not be included in TCP SNI map:\n%s", out)
 	}
 }
