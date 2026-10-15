@@ -59,6 +59,7 @@ coverage/
 web/coverage/
 test-results/
 playwright-report/
+/mock-page-artifacts/
 
 # Docker and temporary files
 *.pid

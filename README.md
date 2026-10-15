@@ -1,60 +1,44 @@
 # proxy-go
 
-## 基本介绍
+proxy-go 是一个面向单机部署的代理网关管理程序。它提供 Web 管理面板，统一管理域名、ACME 证书、Nginx 反向代理和 sing-box 入站。
 
-proxy-go 是一个面向单机部署的代理网关管理程序，提供 Web 管理面板，并统一编排证书、反向代理和 sing-box 代理入口配置。
+## 主要功能
 
-1. 自动申请 SSL 证书：基于域名配置发起 ACME HTTP-01 验证，完成证书签发、落盘和续期管理，供后续 HTTPS 入口和反向代理配置使用。
-2. 端口反向代理：通过内置 Nginx 生成和加载反向代理配置，将普通 HTTPS 流量按域名转发到指定后端服务。
-3. 使用 sing-box 创建指定协议代理：通过 sing-box 生成 Reality Vision 与 AnyTLS 入站配置，公网 HTTPS 由 Nginx stream 按 SNI 分流到 sing-box 或内部 HTTPS，并由程序统一管理配置生成、校验和运行状态。
+- 管理域名并执行 DNS 检查。
+- 通过 ACME HTTP-01 自动申请、续期和删除证书。
+- 为域名配置 HTTPS 反向代理和上游服务。
+- 管理 sing-box VLESS Reality Vision、AnyTLS 和 Hysteria2 入站，生成分享链接或二维码。
+- 查看 Nginx、sing-box 运行状态、生成配置和审计日志。
+- 使用 Mock API 调试前端，并在 CI 中生成桌面截图与项目文档站。
 
-## 网络流量架构
+## 快速开始
 
-当前运行模型中，公网 `443` 由 Nginx stream 监听。Nginx 使用 `ssl_preread` 读取 TLS ClientHello 的 SNI：匹配代理入口分流 SNI 的流量转发到本机 sing-box 入站，其他普通 HTTPS 流量转发到内置 Nginx HTTPS，再由 Nginx 按域名处理管理面板和反向代理。
+生产环境使用 Docker Compose：
 
-```text
-Internet
-  |
-  | HTTP :80
-  v
-Nginx public HTTP
-  |-- /.well-known/acme-challenge/ -> proxy-go internal API
-  `-- other paths                   -> HTTPS redirect
-
-Internet
-  |
-  | HTTPS :443
-  v
-Nginx stream ssl_preread
-  |-- SNI = REALITY handshake server, e.g. apple.com
-  |     `-> 127.0.0.1:31001 sing-box VLESS Reality Vision inbound
-  |
-  |-- SNI = AnyTLS domain, e.g. any.example.com
-  |     `-> 127.0.0.1:31002 sing-box AnyTLS inbound
-  |
-  `-- default / normal HTTPS
-        `-> 127.0.0.1:30443 Nginx internal HTTPS
-              |-- management domain -> proxy-go Web/API
-              `-- reverse proxy     -> configured upstream service
+```sh
+cp .env.example .env
+# 编辑 .env，至少设置 PROXY_GO_INITIAL_PASSWORD
+docker compose up -d
 ```
 
-## 项目结构
+管理面板默认地址为 <http://127.0.0.1:30080>。生产环境应将 80/443 暴露到公网，并为数据目录配置持久化存储。
 
-```text
-cmd/server/          Go 服务入口
-internal/            后端核心代码
-internal/httpapi/    REST API 路由、中间件和处理器
-internal/services/   业务服务层
-internal/nginx/      Nginx 配置生成与进程管理
-internal/singbox/    sing-box 配置生成与进程管理
-configs/             默认配置文件
-runtime-assets/      运行时资产
-scripts/             开发与构建脚本
-web/                 React 前端项目
-web/src/main.tsx     前端入口
-docker-compose.yml   Docker Compose 启动配置
-Dockerfile.amd64     AMD64 Docker 镜像构建文件
+本地开发：
+
+```sh
+cd web
+pnpm install
+cd ..
+./scripts/dev.sh
 ```
+
+前端地址为 <http://127.0.0.1:5173>，后端地址为 <http://127.0.0.1:30080>。本地开发默认使用 Let's Encrypt staging ACME 端点，不会申请生产证书。
+
+## 文档
+
+- [开发说明](docs/DEVELOPMENT.md)：架构、目录、配置、API、本地开发和验证命令。
+- [发布说明](docs/RELEASE.md)：Docker 部署、CI、容器冒烟检查和项目文档站发布。
+- [前端设计说明](web/DESIGN.md)：管理面板的视觉和交互约定。
 
 ## 技术栈
 
@@ -63,57 +47,19 @@ Dockerfile.amd64     AMD64 Docker 镜像构建文件
 - 运行时：Nginx、sing-box
 - 部署：Docker、Docker Compose
 
-## 启动命令
+## 网络流量架构
 
-### Docker Compose
-
-```bash
-cp .env.example .env
-docker compose up -d
-```
-
-访问管理面板：
+公网 `443` 由 Nginx stream 监听，并通过 `ssl_preread` 按 TLS SNI 分流：代理 SNI 转发到 sing-box 入站，普通 HTTPS 转发到内部 Nginx；内部 Nginx 再按域名处理管理面板和反向代理。公网 `80` 用于 ACME challenge 和 HTTPS 跳转。
 
 ```text
-http://127.0.0.1:30080
+Internet :80  -> Nginx public HTTP -> ACME challenge / HTTPS redirect
+Internet :443 -> Nginx stream ssl_preread
+                  |-- proxy SNI    -> sing-box 127.0.0.1:31001/31002/31003
+                  `-- normal HTTPS  -> Nginx 127.0.0.1:30443
+                                      |-- management domain -> proxy-go
+                                      `-- reverse proxy      -> upstream
 ```
 
-### 本地开发
+## 许可证和安全
 
-```bash
-cd web
-pnpm install
-pnpm build
-cd ..
-./scripts/dev.sh
-```
-
-## Mock 前端调试
-
-Mock API 会在浏览器本地保存一组独立演示数据，无需运行 Go 服务。启动时设置 `VITE_MOCK_API=true`：
-
-```bash
-cd web
-VITE_MOCK_API=true pnpm dev
-```
-
-页面右下角的「Mock 调试」面板可以调整请求延迟、让下一次 API 请求返回 503、切换登录态、查看请求记录和重置数据。此模式只用于本地调试与 CI，不会写入后端。
-
-## 截图图库与 GitHub Pages
-
-`.github/workflows/mock-gallery.yml` 会在 Pull Request 中构建 Mock 前端并用 Chromium 操作各模块和关键操作，手机、桌面截图作为 CI artifact 保存。每次推送 `main` 时，同一工作流还会生成静态功能介绍与截图图库并部署到 GitHub Pages。
-
-首次启用时，在 GitHub 仓库 **Settings → Pages → Build and deployment** 将 **Source** 设为 **GitHub Actions**。之后推送 `main` 即会更新页面，部署地址会显示在 workflow summary 和 `github-pages` environment 中。
-
-本地生成图库：
-
-```bash
-cd web
-VITE_MOCK_API=true pnpm build
-cd ..
-npm install --no-package-lock --prefix scripts/ci/web
-npx --prefix scripts/ci/web playwright install chromium
-bash scripts/ci/verify-mock-pages.sh
-```
-
-生成的完整静态站点位于 `mock-page-artifacts/site`，截图与浏览器日志位于 `mock-page-artifacts`。
+请勿提交 `.env`、数据库、证书、私钥或运行日志。生产环境必须使用 HTTPS，并备份 Docker Compose 挂载的数据目录和日志目录。

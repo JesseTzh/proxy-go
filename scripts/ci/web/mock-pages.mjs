@@ -19,7 +19,12 @@ try {
     const hideDebug = await page.addStyleTag({ content: '[data-testid="mock-debug-panel"]{display:none!important}' });
     const captured = [];
     async function capture(id, ready = page.locator('main')) { await expect(ready).toBeVisible(); await page.screenshot({ path: resolve(dir, `${id}.png`), fullPage: true }); captured.push(id); }
-    await capture('dashboard');
+    await page.getByTestId('dashboard-logout-button').click();
+
+    await capture('login', page.getByTestId('login-page'));
+    await page.getByTestId('login-password-input').fill('mock-password');
+    await page.getByTestId('login-submit-button').click();
+    await capture('dashboard', page.getByTestId('dashboard-page'));
     await page.getByTestId('dashboard-process-sing-box-logs').click(); await capture('dashboard-logs', page.getByTestId('dashboard-logs-dialog')); await page.keyboard.press('Escape');
     await page.getByTestId('dashboard-process-nginx-config').click(); await capture('dashboard-config', page.getByTestId('dashboard-nginx-config-dialog')); await page.keyboard.press('Escape');
     const routes = [['domains', 'domains-page'], ['reverse', 'reverse-proxies-page'], ['vless', 'inbounds-page'], ['settings', 'settings-page'], ['audit', 'audit-page']];
@@ -30,7 +35,7 @@ try {
     await page.getByTestId('inbound-show-qr-1').click(); await capture('vless-share', page.getByTestId('inbound-share-dialog')); await page.keyboard.press('Escape');
     await page.getByTestId('nav-settings').click(); await page.getByTestId('settings-runtime-tab').click(); await capture('settings-runtime');
     await page.getByTestId('nav-audit').click(); await page.getByTestId('audit-detail-1').click(); await capture('audit-detail', page.getByTestId('audit-detail-dialog')); await page.keyboard.press('Escape');
-    await page.getByTestId('nav-dashboard').click(); await page.getByTestId('dashboard-logout-button').click(); await expect(page.getByTestId('login-page')).toBeVisible(); await capture('login', page.getByTestId('login-page'));
+    await page.getByTestId('nav-dashboard').click(); await page.getByTestId('dashboard-logout-button').click(); await expect(page.getByTestId('login-page')).toBeVisible();
     await hideDebug.evaluate(element => element.remove());
     await page.getByTestId('mock-debug-open').click(); await capture('mock-debug', page.getByTestId('mock-debug-card'));
     if (errors.length) throw new Error(`Browser errors in ${layout}: ${errors.join('\n')}`);

@@ -17,4 +17,5 @@ if [[ "$ready" != true ]]; then
   exit 1
 fi
 CI_BASE_URL=http://127.0.0.1:4173 CI_ARTIFACTS_DIR="$ARTIFACTS" node scripts/ci/web/mock-pages.mjs
-CI_ARTIFACTS_DIR="$ARTIFACTS" GALLERY_SHA="${GITHUB_SHA:-local}" node scripts/ci/web/build-mock-gallery.mjs
+CI_ARTIFACTS_DIR="$ARTIFACTS" GALLERY_SHA="${GITHUB_SHA:-main}" node scripts/ci/web/build-mock-gallery.mjs
+CI_ARTIFACTS_DIR="$ARTIFACTS" node scripts/ci/web/verify-documentation.mjs
